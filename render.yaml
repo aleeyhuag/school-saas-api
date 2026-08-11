@@ -1,0 +1,62 @@
+databases:
+  - name: school-saas-db
+    plan: basic-256mb # Render's cheapest PAID Postgres (~$6/month). Do NOT use the free option — it auto-deletes your entire database, no warning grace period past 14 days, after just 30 days. Fine for a throwaway test, not for real schools' data.
+
+services:
+  - type: web
+    name: school-saas-api
+    runtime: docker
+    plan: starter # ~$7/month — free web-service tier's ephemeral disk would wipe every uploaded logo/payment-proof file on each restart/deploy
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /up
+    disk:
+      name: school-saas-uploads
+      mountPath: /var/www/html/storage/app/public
+      sizeGB: 1
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_URL
+        sync: false # set to your actual Render URL (or custom domain) after first deploy
+      - key: APP_KEY
+        sync: false # generate locally with `php artisan key:generate --show` and paste it here — keep it FIXED, don't let the container regenerate it on every boot
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        fromDatabase:
+          name: school-saas-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: school-saas-db
+          property: port
+      - key: DB_DATABASE
+        fromDatabase:
+          name: school-saas-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: school-saas-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: school-saas-db
+          property: password
+      - key: SESSION_DRIVER
+        value: database
+      - key: MAIL_MAILER
+        sync: false
+      - key: MAIL_HOST
+        sync: false
+      - key: MAIL_PORT
+        sync: false
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_FROM_ADDRESS
+        sync: false
+      - key: FRONTEND_URL
+        sync: false # your Netlify URL, used for CORS / password-reset links
