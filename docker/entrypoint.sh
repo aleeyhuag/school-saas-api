@@ -7,7 +7,11 @@ if [ -z "$APP_KEY" ]; then
 fi
 
 php artisan migrate --force
+
+php artisan db:seed --class=RolesSeeder --force
+
 php artisan storage:link || true
+
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
