@@ -7,6 +7,7 @@ use App\Http\Requests\Auth\LoginRequest;
 use App\Models\School;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use App\Services\AuditLogService;
 use Illuminate\Validation\ValidationException;
 
 class LoginController extends Controller
@@ -16,7 +17,7 @@ class LoginController extends Controller
      * and returns a Sanctum API token for the Flutter app / React web app
      * to use on subsequent requests.
      */
-    public function __invoke(LoginRequest $request)
+    public function __invoke(LoginRequest $request, AuditLogService $auditLogs)
     {
         $validated = $request->validated();
 
@@ -87,6 +88,12 @@ class LoginController extends Controller
         $deviceName = $validated['device_name'] ?? $request->userAgent() ?? 'unknown-device';
 
         $token = $user->createToken($deviceName)->plainTextToken;
+
+        if ($user->school_id) {
+            $auditLogs->record($request, 'login', 'User logged in successfully.', [
+                'role' => $user->getRoleNames()->values()->all(),
+            ]);
+        }
 
         return response()->json([
             'user' => $user->only(['id', 'name', 'email', 'school_id', 'status']),

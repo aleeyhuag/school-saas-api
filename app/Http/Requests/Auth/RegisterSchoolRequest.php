@@ -24,6 +24,10 @@ class RegisterSchoolRequest extends FormRequest
             'admin_name' => ['required', 'string', 'max:255'],
             'admin_email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'admin_password' => ['required', 'string', 'min:8', 'confirmed'],
+
+            // Legal acceptance is required before a public school account is created.
+            'terms_accepted' => ['required', 'accepted'],
+            'privacy_acknowledged' => ['required', 'accepted'],
         ];
     }
 }

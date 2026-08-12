@@ -1,6 +1,6 @@
 # Production image for Render (or any Docker host). Single container:
-# Apache + PHP 8.3 serving the Laravel app directly out of public/.
-FROM php:8.3-apache
+# Apache + PHP 8.4 serving the Laravel app directly out of public/.
+FROM php:8.4-apache
 
 # Extensions this app actually needs:
 #  - pdo_pgsql: the DB driver — Render's managed Postgres database

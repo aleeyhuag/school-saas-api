@@ -31,7 +31,7 @@ Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal|e
 });
 
 // Managing period definitions — Principal only, same as the grid.
-Route::middleware(['auth:sanctum', 'school.active', 'role:principal'])->group(function () {
+Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal'])->group(function () {
     Route::post('timetable/periods', [PeriodDefinitionController::class, 'store']);
     Route::delete('timetable/periods/{periodDefinition}', [PeriodDefinitionController::class, 'destroy']);
 });
@@ -42,7 +42,7 @@ Route::middleware(['auth:sanctum', 'school.active', 'role:teacher'])->group(func
 });
 
 // Editing the class timetable — Principal only.
-Route::middleware(['auth:sanctum', 'school.active', 'role:principal'])->group(function () {
+Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal'])->group(function () {
     Route::post('timetable/class', [ClassTimetableController::class, 'store']);
     Route::delete('timetable/class/{classTimetableEntry}', [ClassTimetableController::class, 'destroy']);
 });

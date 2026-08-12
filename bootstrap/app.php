@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // auth routes above have their own tighter limits on top of
         // this for the specific endpoints worth throttling harder.
         $middleware->throttleApi();
+        $middleware->append(\App\Http\Middleware\AuditApiRequests::class);
 
         $middleware->alias([
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
