@@ -64,7 +64,7 @@ class BillingController extends Controller
             throw ValidationException::withMessages(['plan_id' => ['This plan is no longer available.']]);
         }
 
-        $proofPath = request()->file('proof')->store('payment-proofs', 'public');
+        $proofPath = request()->file('proof')->store('payment-proofs', 'local');
 
         $payment = $this->subscriptionService->submitBankTransferPayment($school, $plan, $proofPath);
 

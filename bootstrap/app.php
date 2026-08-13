@@ -13,13 +13,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Handle CORS for frontend/API communication.
-        $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
-
-        // Global API rate limiting.
+        // Global safety net — 60 requests/minute per user (or per IP
+        // for unauthenticated requests) across the whole API. The
+        // auth routes above have their own tighter limits on top of
+        // this for the specific endpoints worth throttling harder.
         $middleware->throttleApi();
-
-        // Record API activity for the audit system.
         $middleware->append(\App\Http\Middleware\AuditApiRequests::class);
 
         $middleware->alias([

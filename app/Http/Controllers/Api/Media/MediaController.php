@@ -71,7 +71,14 @@ class MediaController extends Controller
             abort(404);
         }
 
-        $disk = Storage::disk('public');
+        $disk = $requiredPrefix === 'payment-proofs/' ? Storage::disk('local') : Storage::disk('public');
+
+        // Existing receipts may still live on the public disk from before
+        // Stage 47. Prefer the private/local disk for new uploads, but keep
+        // a compatibility fallback so old receipts do not disappear.
+        if (! $disk->exists($normalized) && $requiredPrefix === 'payment-proofs/') {
+            $disk = Storage::disk('public');
+        }
 
         if (! $disk->exists($normalized)) {
             abort(404);

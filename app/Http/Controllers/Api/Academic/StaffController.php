@@ -7,6 +7,8 @@ use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Password;
+use App\Notifications\AccountSetupNotification;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -102,14 +104,25 @@ class StaffController extends Controller
             abort(404);
         }
 
-        $temporaryPassword = Str::random(10);
-
+        // Generate a fresh random temporary credential server-side so the
+        // account remains usable while the setup token is being delivered.
+        // Never return the credential to the browser.
+        $temporaryPassword = Str::random(12);
         $user->update(['password' => Hash::make($temporaryPassword)]);
-        $user->notify(new \App\Notifications\TempPasswordNotification($temporaryPassword, Auth::user()->school->name, isReset: true));
+
+        try {
+            $token = Password::broker()->createToken($user);
+            $user->notify(new AccountSetupNotification($token, Auth::user()->school->name));
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json([
+                'message' => 'The password was not changed because the setup email could not be sent. Please try again after checking email settings.',
+            ], 422);
+        }
 
         return response()->json([
-            'message' => 'Password reset and emailed to them. Shown here too as a fallback.',
-            'temporary_password' => $temporaryPassword,
+            'message' => 'A secure password setup link has been emailed to the staff member.',
+            'setup_link_sent' => true,
         ]);
     }
 

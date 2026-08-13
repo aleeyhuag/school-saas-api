@@ -25,11 +25,6 @@ class User extends Authenticatable
         'school_id',  // <-- added
         'phone',      // <-- added
         'status',     // <-- added: pending | approved | disabled
-        'terms_version',
-        'privacy_version',
-        'legal_accepted_at',
-        'legal_accepted_ip',
-        'legal_accepted_user_agent',
     ];
 
     protected $hidden = [
@@ -42,7 +37,6 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'legal_accepted_at' => 'datetime',
         ];
     }
 

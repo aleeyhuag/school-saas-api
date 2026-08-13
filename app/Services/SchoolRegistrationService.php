@@ -7,6 +7,8 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Password;
+use App\Notifications\AccountSetupNotification;
 
 /**
  * Creates a school + its first Proprietor account. Shared by:
@@ -56,10 +58,11 @@ class SchoolRegistrationService
             // password and gets a token back immediately, no email
             // needed for that path.
             if (! isset($data['admin_password'])) {
-                $user->notify(new \App\Notifications\TempPasswordNotification($plainPassword, $school->name));
+                $token = Password::broker()->createToken($user);
+                $user->notify(new AccountSetupNotification($token, $school->name));
             }
 
-            return [$school, $user, $plainPassword];
+            return [$school, $user, $plainPassword, ! isset($data['admin_password'])];
         });
     }
 }

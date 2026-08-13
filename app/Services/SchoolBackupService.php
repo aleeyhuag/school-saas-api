@@ -131,6 +131,7 @@ class SchoolBackupService
         if (! is_dir($directory)) mkdir($directory, 0750, true);
 
         $public = Storage::disk('public');
+        $private = Storage::disk('local');
         $paths = [];
         if ($school->logo_path) $paths[] = ['path' => $school->logo_path, 'name' => 'school-logo/'.basename($school->logo_path)];
 
@@ -142,11 +143,12 @@ class SchoolBackupService
         }
 
         foreach ($paths as $item) {
-            if (! $public->exists($item['path'])) continue;
+            $disk = $private->exists($item['path']) ? $private : $public;
+            if (! $disk->exists($item['path'])) continue;
             $target = $directory.'/'.$item['name'];
             $targetDir = dirname($target);
             if (! is_dir($targetDir)) mkdir($targetDir, 0750, true);
-            file_put_contents($target, $public->get($item['path']));
+            file_put_contents($target, $disk->get($item['path']));
         }
     }
 
@@ -181,4 +183,94 @@ class SchoolBackupService
         }
         @rmdir($directory);
     }
+    /**
+     * Platform-wide export for Super Admin. This is a data-recovery archive,
+     * not a runnable database dump. Security-sensitive tables and columns are
+     * intentionally omitted so the downloaded archive cannot become a bag of
+     * credentials/tokens.
+     */
+    public function createPlatform(): string
+    {
+        $stamp = now()->format('Ymd_His');
+        $base = storage_path('app/private/backups');
+        $work = $base.'/platform_'.$stamp.'_'.Str::random(8);
+        $zipPath = $base.'/eduventor_platform_'.$stamp.'.zip';
+
+        if (! is_dir($work)) mkdir($work, 0750, true);
+        if (! is_dir($base)) mkdir($base, 0750, true);
+
+        $this->writeJson($work.'/manifest.json', [
+            'product' => 'EduVentor',
+            'backup_type' => 'platform_data_export',
+            'generated_at' => now()->toIso8601String(),
+            'note' => 'Platform credentials, sessions, personal access tokens, password reset tokens, caches and jobs are excluded.',
+        ]);
+
+        $dataDir = $work.'/data';
+        if (! is_dir($dataDir)) mkdir($dataDir, 0750, true);
+
+        $excludedTables = [
+            'password_reset_tokens', 'personal_access_tokens', 'sessions',
+            'cache', 'cache_locks', 'jobs', 'job_batches', 'failed_jobs',
+        ];
+
+        foreach (Schema::getTableListing() as $table) {
+            if (in_array($table, $excludedTables, true)) continue;
+            if (! Schema::hasTable($table)) continue;
+
+            $columns = Schema::getColumnListing($table);
+            $sensitiveColumns = [
+                'password', 'remember_token', 'two_factor_secret',
+                'two_factor_recovery_codes', 'secret', 'api_key',
+                'access_token', 'refresh_token', 'token',
+            ];
+            $select = array_values(array_filter($columns, fn ($c) => ! in_array($c, $sensitiveColumns, true)));
+            $rows = DB::table($table)->select($select)->get()->map(fn ($r) => (array) $r)->all();
+            $this->writeJson($dataDir.'/'.$table.'.json', $rows);
+        }
+
+        // Include school logos and payment proofs without exposing their
+        // paths publicly. Existing installations may still have older files
+        // on the public disk, so export from either disk when present.
+        $filesDir = $work.'/files';
+        if (! is_dir($filesDir)) mkdir($filesDir, 0750, true);
+        $this->exportPlatformFiles($filesDir);
+
+        $zip = new ZipArchive();
+        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            $this->deleteDirectory($work);
+            throw new \RuntimeException('Unable to create the platform backup archive.');
+        }
+        $this->addDirectory($zip, $work, 'backup');
+        $zip->close();
+        $this->deleteDirectory($work);
+
+        return $zipPath;
+    }
+
+    protected function exportPlatformFiles(string $directory): void
+    {
+        $private = Storage::disk('local');
+        $public = Storage::disk('public');
+
+        $copy = function (string $path, string $targetName) use ($private, $public, $directory): void {
+            $disk = $private->exists($path) ? $private : $public;
+            if (! $disk->exists($path)) return;
+            $target = $directory.'/'.$targetName;
+            if (! is_dir(dirname($target))) mkdir(dirname($target), 0750, true);
+            file_put_contents($target, $disk->get($path));
+        };
+
+        if (Schema::hasTable('schools') && Schema::hasColumn('schools', 'logo_path')) {
+            DB::table('schools')->whereNotNull('logo_path')->pluck('logo_path')->each(
+                fn ($path) => $copy($path, 'school-logos/'.basename($path))
+            );
+        }
+        if (Schema::hasTable('payments') && Schema::hasColumn('payments', 'proof_path')) {
+            DB::table('payments')->whereNotNull('proof_path')->pluck('proof_path')->each(
+                fn ($path) => $copy($path, 'payment-proofs/'.basename($path))
+            );
+        }
+    }
+
 }

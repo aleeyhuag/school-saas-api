@@ -65,13 +65,14 @@ class PlatformSchoolController extends Controller
      */
     public function store(CreateSchoolRequest $request, SchoolRegistrationService $registrationService)
     {
-        [$school, $user, $temporaryPassword] = $registrationService->register($request->validated());
+        [$school, $user, $temporaryPassword, $setupLinkSent] = $registrationService->register($request->validated());
 
         return response()->json([
-            'message' => 'School created. Share the temporary password with the proprietor securely.',
+            'message' => $setupLinkSent ? 'School created. A secure password setup link has been emailed to the proprietor.' : 'School created.',
             'school' => $school,
             'proprietor' => $user->only(['id', 'name', 'email']),
-            'temporary_password' => $temporaryPassword,
+            'temporary_password' => $setupLinkSent ? null : $temporaryPassword,
+            'setup_link_sent' => $setupLinkSent,
         ], 201);
     }
 
@@ -168,7 +169,10 @@ class PlatformSchoolController extends Controller
             // the DB row — clean those up too so deleting a school
             // doesn't leave payment screenshots behind forever.
             $school->payments()->whereNotNull('proof_path')->pluck('proof_path')
-                ->each(fn ($path) => Storage::disk('public')->delete($path));
+                ->each(function ($path) {
+                    Storage::disk('public')->delete($path);
+                    Storage::disk('local')->delete($path);
+                });
 
             // Every remaining school-scoped table (academic_sessions,
             // students, subjects, fees, results, timetables, billing,

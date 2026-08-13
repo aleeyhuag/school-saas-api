@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Auth\LoginController;
 use App\Http\Controllers\Api\Auth\LogoutController;
 use App\Http\Controllers\Api\Auth\RegisterSchoolController;
 use App\Http\Controllers\Api\Auth\ResetPasswordController;
+use App\Http\Controllers\Api\Auth\UpdateProfileController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -34,5 +35,6 @@ Route::prefix('auth')->group(function () {
         Route::get('/me', CurrentUserController::class);
         Route::post('/logout', LogoutController::class);
         Route::put('/change-password', ChangePasswordController::class);
+        Route::put('/profile', UpdateProfileController::class);
     });
 });

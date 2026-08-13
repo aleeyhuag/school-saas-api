@@ -7,6 +7,8 @@ use App\Models\SchoolClass;
 use App\Models\Student;
 use App\Services\StudentEnrollmentService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Password;
+use App\Notifications\AccountSetupNotification;
 
 /**
  * Imports many students at once from a CSV file — the single-add
@@ -87,7 +89,7 @@ class BulkImportStudentsController extends Controller
             }
 
             try {
-                [$student, $temporaryPassword] = $enrollmentService->enroll([
+                [$student, $temporaryPassword, $providedEmail] = $enrollmentService->enroll([
                     'school_class_id' => $matchedClass->id,
                     'admission_number' => $admissionNumber,
                     'first_name' => $firstName,
@@ -99,11 +101,18 @@ class BulkImportStudentsController extends Controller
                     'login_email' => $data['login_email'] ?: null,
                 ], $school);
 
+                if ($providedEmail) {
+                    $token = Password::broker()->createToken($student->user);
+                    $student->user->notify(new AccountSetupNotification($token, $school->name));
+                }
+
                 $created[] = [
                     'admission_number' => $student->admission_number,
                     'name' => "{$firstName} {$lastName}",
                     'login_email' => $student->user->email,
-                    'temporary_password' => $temporaryPassword,
+                    'temporary_password' => $providedEmail ? null : $temporaryPassword,
+                    'setup_link_sent' => $providedEmail,
+                    'system_generated_email' => ! $providedEmail,
                 ];
             } catch (\Throwable $e) {
                 $skipped[] = ['row' => $rowNumber, 'reason' => 'Could not create this student — ' . $e->getMessage()];

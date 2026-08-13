@@ -3,15 +3,15 @@
 namespace App\Http\Controllers\Api\Academic;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Academic\ClassTeacherStudentRequest;
 use App\Http\Requests\Academic\StudentRequest;
 use App\Models\Student;
-use App\Models\TeacherAssignment;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Password;
+use App\Notifications\AccountSetupNotification;
 
 class StudentController extends Controller
 {
@@ -69,12 +69,33 @@ class StudentController extends Controller
      */
     public function store(StudentRequest $request, \App\Services\StudentEnrollmentService $enrollmentService)
     {
-        [$student, $temporaryPassword] = $enrollmentService->enroll($request->validated(), Auth::user()->school);
+        [$student, $temporaryPassword, $providedEmail] = $enrollmentService->enroll($request->validated(), Auth::user()->school);
+
+        if ($providedEmail) {
+            try {
+                $token = Password::broker()->createToken($student->user);
+                $student->user->notify(new AccountSetupNotification($token, Auth::user()->school->name));
+            } catch (\Throwable $e) {
+                report($e);
+                $student->user->delete();
+                $student->delete();
+                return response()->json(['message' => 'The student could not be created because the setup email could not be sent. Please check email settings and try again.'], 422);
+            }
+
+            return response()->json([
+                'student' => $student->load('user:id,name,email'),
+                'login_email' => $student->user->email,
+                'setup_link_sent' => true,
+                'system_generated_email' => false,
+            ], 201);
+        }
 
         return response()->json([
             'student' => $student->load('user:id,name,email'),
             'temporary_password' => $temporaryPassword,
             'login_email' => $student->user->email,
+            'setup_link_sent' => false,
+            'system_generated_email' => true,
         ], 201);
     }
 
@@ -95,66 +116,6 @@ class StudentController extends Controller
         $student->delete();
 
         return response()->json(['message' => 'Student deleted.']);
-    }
-
-    /**
-     * Return the roster for every class where the authenticated teacher
-     * is explicitly assigned as Class Teacher. This is intentionally
-     * separate from the general students index so a teacher cannot turn
-     * a class id/search parameter into access to another class.
-     */
-    public function myClass()
-    {
-        $user = Auth::user();
-
-        $classIds = TeacherAssignment::query()
-            ->where('user_id', $user->id)
-            ->where('is_class_teacher', true)
-            ->pluck('school_class_id')
-            ->filter()
-            ->unique()
-            ->values();
-
-        if ($classIds->isEmpty()) {
-            return response()->json([
-                'message' => 'You are not assigned as a Class Teacher to any class.',
-            ], 403);
-        }
-
-        $students = Student::query()
-            ->with(['schoolClass'])
-            ->whereIn('school_class_id', $classIds)
-            ->orderBy('last_name')
-            ->orderBy('first_name')
-            ->get();
-
-        return response()->json($students);
-    }
-
-    /**
-     * Update only routine student/contact details for a Class Teacher.
-     * Class, admission number, account, status and promotion fields are
-     * deliberately excluded from ClassTeacherStudentRequest.
-     */
-    public function updateMyClassStudent(ClassTeacherStudentRequest $request, Student $student)
-    {
-        $user = Auth::user();
-
-        $isClassTeacher = TeacherAssignment::query()
-            ->where('user_id', $user->id)
-            ->where('is_class_teacher', true)
-            ->where('school_class_id', $student->school_class_id)
-            ->exists();
-
-        if (! $isClassTeacher) {
-            return response()->json([
-                'message' => 'You are not the Class Teacher for this student.',
-            ], 403);
-        }
-
-        $student->update($request->validated());
-
-        return response()->json($student->fresh()->load('schoolClass'));
     }
 
     /**
@@ -223,6 +184,8 @@ class StudentController extends Controller
             'student' => $student->load('user:id,name,email'),
             'temporary_password' => $temporaryPassword,
             'login_email' => $loginEmail,
+            'setup_link_sent' => false,
+            'system_generated_email' => true,
         ]);
     }
 }

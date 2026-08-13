@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\Platform\PlatformSchoolController;
 use App\Http\Controllers\Api\Platform\PlatformStatsController;
+use App\Http\Controllers\Api\Platform\PlatformBackupController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -17,4 +18,5 @@ Route::middleware(['auth:sanctum', 'role:super_admin'])->prefix('platform')->gro
     Route::post('schools/{school}/toggle-active', [PlatformSchoolController::class, 'toggleActive']);
     Route::delete('schools/{school}', [PlatformSchoolController::class, 'destroy']);
     Route::get('stats', [PlatformStatsController::class, 'show']);
+    Route::get('backup/download', [PlatformBackupController::class, 'download']);
 });

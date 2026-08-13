@@ -18,11 +18,21 @@ class CurrentUserController extends Controller
         $user = $request->user()->load('school');
 
         $accessibleSchools = $user->hasRole('proprietor')
-            ? $user->accessibleSchools()->select('schools.id', 'schools.name', 'schools.is_active')->orderBy('schools.name')->get()
+            ? $user->accessibleSchools()
+                ->select('schools.id', 'schools.name', 'schools.is_active')
+                ->orderBy('schools.name')
+                ->get()
             : collect();
 
         return response()->json([
-            'user' => $user->only(['id', 'name', 'email', 'school_id', 'status']),
+            'user' => $user->only([
+                'id',
+                'name',
+                'email',
+                'phone',
+                'school_id',
+                'status',
+            ]),
             'school' => $user->school,
             'roles' => $user->getRoleNames(),
             'accessible_schools' => $accessibleSchools,
