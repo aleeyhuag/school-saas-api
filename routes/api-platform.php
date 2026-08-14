@@ -19,4 +19,6 @@ Route::middleware(['auth:sanctum', 'role:super_admin'])->prefix('platform')->gro
     Route::delete('schools/{school}', [PlatformSchoolController::class, 'destroy']);
     Route::get('stats', [PlatformStatsController::class, 'show']);
     Route::get('backup/download', [PlatformBackupController::class, 'download']);
+    Route::get('schools/{school}/backup/download', [PlatformBackupController::class, 'downloadSchool']);
+    Route::get('schools/{school}/export/{module}', [PlatformBackupController::class, 'downloadSchoolModule']);
 });

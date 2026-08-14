@@ -23,13 +23,13 @@ class AccountSetupNotification extends Notification
         $url = $frontendUrl.'/reset-password?token='.urlencode($this->token).'&email='.urlencode($notifiable->email).'&setup=1';
 
         return (new MailMessage)
-            ->subject("Set up your EduVentor account — {$this->schoolName}")
+            ->subject("Set up your Skulag account — {$this->schoolName}")
             ->greeting("Hello {$notifiable->name},")
-            ->line("Your EduVentor account for {$this->schoolName} has been created.")
+            ->line("Your Skulag account for {$this->schoolName} has been created.")
             ->line('Use the secure button below to choose your own password. You do not need to use a temporary password.')
             ->action('Set My Password', $url)
             ->line('This link expires in 60 minutes and can only be used to set your password.')
-            ->salutation('— EduVentor');
+            ->salutation('— Skulag');
     }
 
     public function toArray($notifiable): array

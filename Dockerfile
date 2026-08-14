@@ -1,7 +1,7 @@
 # Production image for Render
 FROM php:8.4-apache
 
-# PHP extensions required by EduVentor
+# PHP extensions required by Skulag
 RUN apt-get update && apt-get install -y \
         libzip-dev \
         libpng-dev \

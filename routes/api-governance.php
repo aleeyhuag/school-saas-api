@@ -13,4 +13,5 @@ Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal']
 
 Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor'])->group(function () {
     Route::get('school-backup/download', [SchoolBackupController::class, 'download']);
+    Route::get('school-backup/module/{module}', [SchoolBackupController::class, 'downloadModule']);
 });
