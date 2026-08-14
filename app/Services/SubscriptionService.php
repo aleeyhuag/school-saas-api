@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Payment;
+use App\Models\PaymentReview;
 use App\Models\Plan;
 use App\Models\School;
 use App\Models\Subscription;
@@ -10,6 +11,7 @@ use App\Notifications\PaymentConfirmedNotification;
 use App\Notifications\PaymentRejectedNotification;
 use App\Notifications\TrialEndingNotification;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SubscriptionService
 {
@@ -85,19 +87,43 @@ class SubscriptionService
 
     public function submitBankTransferPayment(School $school, Plan $plan, string $proofPath): Payment
     {
-        $subscription = $this->ensureSubscription($school);
-        $referenceCode = $this->ensurePaymentReferenceCode($school);
+        return DB::transaction(function () use ($school, $plan, $proofPath) {
+            // Serialize submissions for this school. The frontend already
+            // disables the button when a payment is pending, but the server
+            // must enforce the rule too because two requests can arrive at
+            // almost the same time.
+            $lockedSchool = School::query()->whereKey($school->id)->lockForUpdate()->firstOrFail();
 
-        return Payment::create([
-            'school_id' => $school->id,
-            'subscription_id' => $subscription->id,
-            'plan_id' => $plan->id,
-            'amount_kobo' => $plan->amount_kobo,
-            'method' => 'bank_transfer',
-            'status' => 'pending_review',
-            'reference_code' => $referenceCode,
-            'proof_path' => $proofPath,
-        ]);
+            $hasPending = Payment::query()
+                ->where('school_id', $lockedSchool->id)
+                ->where('status', 'pending_review')
+                ->exists();
+
+            if ($hasPending) {
+                throw ValidationException::withMessages([
+                    'payment' => ['You already have a payment awaiting review. Please wait for it to be confirmed or rejected before submitting another.'],
+                ]);
+            }
+
+            $subscription = $this->ensureSubscription($lockedSchool);
+            $referenceCode = $this->ensurePaymentReferenceCode($lockedSchool);
+
+            // The amount and duration are taken from the server-side plan.
+            // The browser never gets to choose the financial value stored in
+            // the payment record. duration_months is a historical snapshot so
+            // later edits to the plan cannot change what was purchased.
+            return Payment::create([
+                'school_id' => $lockedSchool->id,
+                'subscription_id' => $subscription->id,
+                'plan_id' => $plan->id,
+                'amount_kobo' => $plan->amount_kobo,
+                'duration_months' => $plan->duration_months,
+                'method' => 'bank_transfer',
+                'status' => 'pending_review',
+                'reference_code' => $referenceCode,
+                'proof_path' => $proofPath,
+            ]);
+        });
     }
 
     /**
@@ -109,50 +135,111 @@ class SubscriptionService
      */
     public function confirmPayment(Payment $payment, ?int $reviewerId = null): void
     {
-        DB::transaction(function () use ($payment, $reviewerId) {
-            $payment->update([
+        $notification = DB::transaction(function () use ($payment, $reviewerId) {
+            // Lock the payment so a repeated admin click or a Paystack webhook
+            // cannot confirm the same payment twice and extend the subscription
+            // twice.
+            $lockedPayment = Payment::query()
+                ->with(['subscription', 'plan', 'school'])
+                ->whereKey($payment->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($lockedPayment->status !== 'pending_review') {
+                return null;
+            }
+
+            $subscription = Subscription::query()
+                ->whereKey($lockedPayment->subscription_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $plan = $lockedPayment->plan;
+            $durationMonths = (int) ($lockedPayment->duration_months ?: $plan->duration_months);
+            $previousStatus = $lockedPayment->status;
+            $now = now();
+
+            $lockedPayment->update([
                 'status' => 'success',
                 'reviewed_by' => $reviewerId,
-                'reviewed_at' => now(),
+                'reviewed_at' => $now,
             ]);
 
-            $subscription = $payment->subscription;
-            $plan = $payment->plan;
-
-            // Extend from whichever is later: the current period end
-            // (renewing before it lapses just adds on top of what's
-            // left) or right now (renewing after a lapse starts
-            // fresh from today, not from some date in the past).
+            // Extend from whichever is later: the current period end or now.
             $extendFrom = $subscription->current_period_ends_at && $subscription->current_period_ends_at->isFuture()
                 ? $subscription->current_period_ends_at
-                : now();
+                : $now;
 
             $subscription->update([
                 'plan_id' => $plan->id,
                 'status' => 'active',
-                'current_period_ends_at' => $extendFrom->copy()->addMonths($plan->duration_months),
+                'current_period_ends_at' => $extendFrom->copy()->addMonths($durationMonths),
                 'grace_ends_at' => null,
             ]);
 
-            $school = $payment->school;
+            $school = $lockedPayment->school;
             if (! $school->is_active) {
                 $school->update(['is_active' => true, 'deactivation_reason' => null]);
             }
 
-            $this->notifyProprietors($school, new PaymentConfirmedNotification($plan, $school->name));
+            PaymentReview::create([
+                'payment_id' => $lockedPayment->id,
+                'reviewer_id' => $reviewerId,
+                'action' => 'confirmed',
+                'previous_status' => $previousStatus,
+                'new_status' => 'success',
+                'reason' => null,
+                'created_at' => $now,
+            ]);
+
+            return [$school, $plan];
         });
+
+        if ($notification) {
+            [$school, $plan] = $notification;
+            $this->notifyProprietors($school, new PaymentConfirmedNotification($plan, $school->name));
+        }
     }
 
     public function rejectPayment(Payment $payment, int $reviewerId, string $reason): void
     {
-        $payment->update([
-            'status' => 'rejected',
-            'reviewed_by' => $reviewerId,
-            'reviewed_at' => now(),
-            'rejection_reason' => $reason,
-        ]);
+        $notification = DB::transaction(function () use ($payment, $reviewerId, $reason) {
+            $lockedPayment = Payment::query()
+                ->with('school')
+                ->whereKey($payment->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $this->notifyProprietors($payment->school, new PaymentRejectedNotification($reason, $payment->school->name));
+            if ($lockedPayment->status !== 'pending_review') {
+                return null;
+            }
+
+            $now = now();
+            $previousStatus = $lockedPayment->status;
+
+            $lockedPayment->update([
+                'status' => 'rejected',
+                'reviewed_by' => $reviewerId,
+                'reviewed_at' => $now,
+                'rejection_reason' => $reason,
+            ]);
+
+            PaymentReview::create([
+                'payment_id' => $lockedPayment->id,
+                'reviewer_id' => $reviewerId,
+                'action' => 'rejected',
+                'previous_status' => $previousStatus,
+                'new_status' => 'rejected',
+                'reason' => $reason,
+                'created_at' => $now,
+            ]);
+
+            return $lockedPayment->school;
+        });
+
+        if ($notification) {
+            $this->notifyProprietors($notification, new PaymentRejectedNotification($reason, $notification->name));
+        }
     }
 
     /**

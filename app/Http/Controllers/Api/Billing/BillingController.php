@@ -9,6 +9,7 @@ use App\Services\PaystackService;
 use App\Services\SubscriptionService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Storage;
 
 class BillingController extends Controller
 {
@@ -54,7 +55,7 @@ class BillingController extends Controller
     {
         $validated = request()->validate([
             'plan_id' => ['required', 'integer', 'exists:plans,id'],
-            'proof' => ['required', 'image', 'max:5120'], // 5MB
+            'proof' => ['required', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'], // 5MB; no SVG/scripts
         ]);
 
         $school = Auth::user()->school;
@@ -64,9 +65,19 @@ class BillingController extends Controller
             throw ValidationException::withMessages(['plan_id' => ['This plan is no longer available.']]);
         }
 
-        $proofPath = request()->file('proof')->store('payment-proofs', 'local');
+        // Payment proofs are financial evidence and must not be stored in the
+        // public disk. The signed media route is the only intended way to
+        // retrieve new proofs.
+        $proofPath = request()->file('proof')->store('payment-proofs', 'private');
 
-        $payment = $this->subscriptionService->submitBankTransferPayment($school, $plan, $proofPath);
+        try {
+            $payment = $this->subscriptionService->submitBankTransferPayment($school, $plan, $proofPath);
+        } catch (\Throwable $e) {
+            // The database transaction may reject a concurrent/duplicate
+            // submission; do not leave its uploaded file orphaned.
+            Storage::disk('private')->delete($proofPath);
+            throw $e;
+        }
 
         return response()->json([
             'message' => "Payment submitted for review. We'll confirm it against your transfer within 1-2 business days.",
@@ -93,13 +104,25 @@ class BillingController extends Controller
         $school = $user->school;
         $plan = Plan::findOrFail($validated['plan_id']);
 
+        // Server-side duplicate protection. The frontend also disables
+        // payment buttons, but that is only a UX guard.
+        $hasPending = Payment::query()
+            ->where('school_id', $school->id)
+            ->where('status', 'pending_review')
+            ->exists();
+
+        if ($hasPending) {
+            throw ValidationException::withMessages([
+                'payment' => ['You already have a payment awaiting review. Please wait for it to be confirmed or rejected before starting another payment.'],
+            ]);
+        }
+
         $result = $paystack->initializeTransaction($user->email, $plan->amount_kobo, [
             'school_id' => $school->id,
             'plan_id' => $plan->id,
         ]);
 
         $subscription = $this->subscriptionService->ensureSubscription($school);
-
         $referenceCode = $this->subscriptionService->ensurePaymentReferenceCode($school);
 
         Payment::create([
@@ -107,6 +130,7 @@ class BillingController extends Controller
             'subscription_id' => $subscription->id,
             'plan_id' => $plan->id,
             'amount_kobo' => $plan->amount_kobo,
+            'duration_months' => $plan->duration_months,
             'method' => 'paystack',
             'status' => 'pending_review',
             'reference_code' => $referenceCode,

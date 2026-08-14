@@ -4,11 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Payment extends Model
 {
     protected $fillable = [
-        'school_id', 'subscription_id', 'plan_id', 'amount_kobo', 'method', 'status',
+        'school_id', 'subscription_id', 'plan_id', 'amount_kobo', 'duration_months', 'method', 'status',
         'reference_code', 'proof_path', 'paystack_reference', 'rejection_reason',
         'reviewed_by', 'reviewed_at',
     ];
@@ -50,6 +51,11 @@ class Payment extends Model
     public function plan(): BelongsTo
     {
         return $this->belongsTo(Plan::class);
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(PaymentReview::class);
     }
 
     public function reviewer(): BelongsTo
