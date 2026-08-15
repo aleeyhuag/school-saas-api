@@ -45,7 +45,11 @@ class PlatformBackupController extends Controller
 
     public function downloadSchoolModule(Request $request, School $school, string $module, SchoolBackupService $backupService)
     {
-        $path = $backupService->createModule($school, $module);
+        try {
+            $path = $backupService->createModule($school, $module);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
 
         Log::info('Skulag school module export downloaded by Super Admin.', [
             'user_id' => $request->user()?->id,

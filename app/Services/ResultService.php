@@ -19,6 +19,24 @@ use Illuminate\Support\Collection;
 class ResultService
 {
     /**
+     * Per-request memoization for computeSubjectPositions() and
+     * computeOverallPosition(). Both are class-wide computations —
+     * every student in a class shares the exact same result — but were
+     * being re-queried and re-computed from scratch for every single
+     * student. That's invisible for one student's report card, but
+     * ReportCardController::classBulk() calls computeStudentTermResult()
+     * once per student in a loop, and that method calls both of these
+     * internally — so generating a class of 40 students' report cards
+     * was doing ~40x more SubjectScore queries than necessary, all
+     * returning identical data. Laravel resolves ResultService once per
+     * request (constructor injection is reused across the whole call
+     * graph), so a plain instance-level cache is safe here and needs no
+     * external cache store.
+     */
+    protected array $subjectPositionsCache = [];
+    protected array $overallPositionCache = [];
+
+    /**
      * Compute one student's result for one subject in one term.
      * Returns raw scores, the weighted total (0-100), and the grade.
      */
@@ -61,6 +79,12 @@ class ResultService
      */
     public function computeSubjectPositions(int $schoolClassId, int $subjectId, int $termId): Collection
     {
+        $cacheKey = "{$schoolClassId}:{$subjectId}:{$termId}";
+
+        if (isset($this->subjectPositionsCache[$cacheKey])) {
+            return $this->subjectPositionsCache[$cacheKey];
+        }
+
         $scores = SubjectScore::where('school_class_id', $schoolClassId)
             ->where('subject_id', $subjectId)
             ->where('term_id', $termId)
@@ -77,7 +101,7 @@ class ResultService
         $lastScore = null;
         $rank = 0;
 
-        return $totals->map(function ($row) use (&$position, &$lastScore, &$rank) {
+        $result = $totals->map(function ($row) use (&$position, &$lastScore, &$rank) {
             $position++;
             if ($row['total_score'] !== $lastScore) {
                 $rank = $position;
@@ -89,6 +113,8 @@ class ResultService
                 'position' => $rank, // ties share the same position (standard competition ranking)
             ];
         })->keyBy('student_id');
+
+        return $this->subjectPositionsCache[$cacheKey] = $result;
     }
 
     /**
@@ -145,6 +171,12 @@ class ResultService
      */
     public function computeOverallPosition(int $schoolClassId, int $termId): Collection
     {
+        $cacheKey = "{$schoolClassId}:{$termId}";
+
+        if (isset($this->overallPositionCache[$cacheKey])) {
+            return $this->overallPositionCache[$cacheKey];
+        }
+
         $classSubjectCount = SchoolClass::find($schoolClassId)?->subjects()->count() ?? 0;
 
         $scores = SubjectScore::where('school_class_id', $schoolClassId)
@@ -170,7 +202,7 @@ class ResultService
         $lastTotal = null;
         $rank = 0;
 
-        return $totals->map(function ($row) use (&$position, &$lastTotal, &$rank) {
+        $result = $totals->map(function ($row) use (&$position, &$lastTotal, &$rank) {
             $position++;
             if ($row['grand_total'] !== $lastTotal) {
                 $rank = $position;
@@ -183,6 +215,8 @@ class ResultService
                 'position' => $rank,
             ];
         })->keyBy('student_id');
+
+        return $this->overallPositionCache[$cacheKey] = $result;
     }
 
     // ---- internals ----
