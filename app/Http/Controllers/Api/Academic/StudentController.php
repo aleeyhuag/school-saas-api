@@ -5,12 +5,14 @@ namespace App\Http\Controllers\Api\Academic;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Academic\StudentRequest;
 use App\Models\Student;
+use App\Models\TeacherAssignment;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Validation\Rule;
 use App\Notifications\AccountSetupNotification;
 
 class StudentController extends Controller
@@ -187,5 +189,69 @@ class StudentController extends Controller
             'setup_link_sent' => false,
             'system_generated_email' => true,
         ]);
+    }
+
+    /**
+     * Class-teacher roster — students in the class(es) where this
+     * teacher holds the is_class_teacher assignment. Separate from
+     * index() above, which is the broader management listing gated
+     * to proprietor/principal/bursar/exam_officer.
+     */
+    public function myClass()
+    {
+        $user = Auth::user();
+
+        $classIds = TeacherAssignment::where('user_id', $user->id)
+            ->where('school_id', $user->school_id)
+            ->where('is_class_teacher', true)
+            ->pluck('school_class_id');
+
+        if ($classIds->isEmpty()) {
+            return response()->json([]);
+        }
+
+        return Student::with('schoolClass')
+            ->where('school_id', $user->school_id)
+            ->whereIn('school_class_id', $classIds)
+            ->orderBy('last_name')
+            ->get();
+    }
+
+    /**
+     * Lets a class teacher update routine bio/contact details for a
+     * student in their own class. Deliberately narrower than update()
+     * above — no school_class_id, admission_number, or login changes
+     * here; those remain under school management, matching what the
+     * "My Class" edit modal on the frontend actually sends.
+     */
+    public function updateMyClassStudent(Student $student)
+    {
+        $user = Auth::user();
+
+        if ((int) $student->school_id !== (int) $user->school_id) {
+            abort(403, 'This student does not belong to your school.');
+        }
+
+        $isClassTeacher = TeacherAssignment::where('user_id', $user->id)
+            ->where('school_class_id', $student->school_class_id)
+            ->where('is_class_teacher', true)
+            ->exists();
+
+        if (! $isClassTeacher) {
+            abort(403, 'You are not the class teacher for this student.');
+        }
+
+        $validated = request()->validate([
+            'first_name' => ['required', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
+            'date_of_birth' => ['nullable', 'date'],
+            'gender' => ['nullable', Rule::in(['male', 'female'])],
+            'guardian_name' => ['nullable', 'string', 'max:255'],
+            'guardian_phone' => ['nullable', 'string', 'max:30'],
+        ]);
+
+        $student->update($validated);
+
+        return $student->load('schoolClass');
     }
 }
