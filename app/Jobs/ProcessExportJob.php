@@ -92,7 +92,26 @@ class ProcessExportJob implements ShouldQueue
             ]);
         }
 
-        $export->user?->notify(new ExportReadyNotification($export->fresh()));
+        // Deliberately outside the try/catch above and in its own
+        // try/catch here — a notification failure (mail provider
+        // rejecting the recipient, SMTP down, etc) must never crash
+        // this request or mask a genuinely successful export. This was
+        // a real bug: Resend's test/sandbox mode rejects mail to any
+        // recipient other than the account owner, which was throwing
+        // an uncaught TransportException here and turning a successful
+        // export into a 500 response to the frontend — the export was
+        // actually fine (already marked completed, file on disk above)
+        // but the person never found out because the request itself
+        // crashed on its way back.
+        try {
+            $export->user?->notify(new ExportReadyNotification($export->fresh()));
+        } catch (\Throwable $e) {
+            Log::warning('Export ready notification could not be sent', [
+                'export_id' => $export->id,
+                'user_id' => $export->user_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     protected function runSchoolBackup(Export $export, SchoolBackupService $backupService): array

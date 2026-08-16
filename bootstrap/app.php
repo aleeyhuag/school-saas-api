@@ -13,6 +13,17 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Trust Render's edge proxy so Laravel knows the original
+        // request was HTTPS. Render terminates SSL at their edge and
+        // forwards plain HTTP internally to this container — without
+        // this, every URL Laravel generates (signed export download
+        // links in particular) comes out as http://, which the
+        // frontend's HTTPS origin then blocks as mixed content. '*' is
+        // the standard/correct setting for a PaaS like Render/Heroku,
+        // where the container is never reachable except through their
+        // proxy — there's no untrusted network path to worry about.
+        $middleware->trustProxies(at: '*');
+
         // Global safety net — 60 requests/minute per user (or per IP
         // for unauthenticated requests) across the whole API. The
         // auth routes above have their own tighter limits on top of

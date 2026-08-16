@@ -106,11 +106,21 @@ class SyncController extends Controller
 
         $subjectId = $validated['subject_id'] ?? null;
 
+        // Small grace window on the conflict check: only treat the
+        // existing row as "newer than what I'm submitting" if it's
+        // meaningfully newer — a couple of seconds guards against
+        // clock-precision/request-latency noise (e.g. rapid repeat
+        // saves during testing) without weakening real conflict
+        // detection, since a genuine conflict — a DIFFERENT save from
+        // a different session — is realistically separated by much
+        // more than a few seconds, not milliseconds.
+        $recordedAtWithGrace = \Illuminate\Support\Carbon::parse($recordedAt)->addSeconds(3);
+
         // --- apply, tracking conflicts per student ---
         $applied = [];
         $conflicts = [];
 
-        DB::transaction(function () use ($validated, $subjectId, $recordedAt, $user, $schoolId, &$applied, &$conflicts) {
+        DB::transaction(function () use ($validated, $subjectId, $recordedAtWithGrace, $user, $schoolId, &$applied, &$conflicts) {
             foreach ($validated['records'] as $record) {
                 $existingRow = Attendance::where('student_id', $record['student_id'])
                     ->where('school_class_id', $validated['school_class_id'])
@@ -119,7 +129,7 @@ class SyncController extends Controller
                     ->first();
 
                 $isStaleConflict = $existingRow
-                    && $existingRow->updated_at->gt($recordedAt)
+                    && $existingRow->updated_at->gt($recordedAtWithGrace)
                     && $existingRow->status !== $record['status'];
 
                 if ($isStaleConflict) {
@@ -264,7 +274,7 @@ class SyncController extends Controller
 
         $recordedAt = $validated['recorded_at'];
         $hasDifferentValues = $existingRow && collect($scoreFields)->contains(fn ($field) => $existingRow->{$field} != ($validated[$field] ?? null));
-        $isStaleConflict = $existingRow && $existingRow->updated_at->gt($recordedAt) && $hasDifferentValues;
+        $isStaleConflict = $existingRow && $existingRow->updated_at->gt(\Illuminate\Support\Carbon::parse($recordedAt)->addSeconds(3)) && $hasDifferentValues;
 
         if ($isStaleConflict) {
             Log::info('Score sync conflict', [
