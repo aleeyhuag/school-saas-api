@@ -26,6 +26,33 @@ use Illuminate\Validation\ValidationException;
 class ExportController extends Controller
 {
     /**
+     * Runs the export now (default — `config('app.export_sync_mode')`)
+     * or dispatches it to the queue for later, per that config flag.
+     * See its docblock in config/app.php for why synchronous is the
+     * current default.
+     */
+    protected function processExport(Export $export): Export
+    {
+        if (! config('app.export_sync_mode')) {
+            ProcessExportJob::dispatch($export->id);
+
+            return $export;
+        }
+
+        // No php.ini override in the Dockerfile means PHP's compiled-in
+        // default (30s) applies to every request. That's fine for a
+        // normal API call, but a genuinely large synchronous export
+        // could exceed it and get killed mid-build. Match the job's
+        // own $timeout (10 min) for just this request rather than
+        // raising the limit globally.
+        set_time_limit(600);
+
+        app()->call([new ProcessExportJob($export->id), 'handle']);
+
+        return $export->fresh();
+    }
+
+    /**
      * Every school-scoped table + referenced files, zipped. Was
      * SchoolBackupController::download() — same authorization
      * (proprietor's own school only), now queued instead of built
@@ -44,7 +71,7 @@ class ExportController extends Controller
             'status' => 'queued',
         ]);
 
-        ProcessExportJob::dispatch($export->id);
+        $export = $this->processExport($export);
 
         $auditLogs->record($request, 'backup_requested', 'Requested a school data backup archive.', [
             'school_id' => $school->id,
@@ -102,7 +129,7 @@ class ExportController extends Controller
             'status' => 'queued',
         ]);
 
-        ProcessExportJob::dispatch($export->id);
+        $export = $this->processExport($export);
 
         return response()->json($export, 202);
     }

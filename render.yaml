@@ -1,16 +1,31 @@
-# Database is hosted on Supabase, NOT Render's managed Postgres — do
+# Database is hosted on Supabase, NOT Render's managed Postgres -- do
 # not add a `databases:` block here for it. Get your connection details
-# from Supabase → Project Settings → Database → Connection parameters.
+# from Supabase -> Project Settings -> Database -> Connection parameters.
 # Use the "Session pooler" or "Transaction pooler" host (not the direct
 # connection) if you're on a Supabase plan where the direct connection
-# isn't reachable from outside their network — check your project's
+# isn't reachable from outside their network -- check your project's
 # connection page for which applies to you.
+#
+# HOTFIX NOTE: the cron service below previously used
+# `envVars: [{fromGroup: school-saas-api}]`, which is invalid -- Render
+# Environment Groups are separate named resources you create yourself,
+# not a way to reference another service's env vars by that service's
+# name. That meant the cron container almost certainly had NO database
+# credentials at all, so every 5-minute tick of `schedule:run` failed
+# silently before it could ever run `billing:process-lifecycle` or
+# drain the export queue. Fixed below by listing the same values
+# explicitly on both services -- deliberately not using a YAML anchor
+# here, since it's not worth the risk of Render's Blueprint parser
+# handling that differently than expected. If you'd rather maintain one
+# copy instead of two, create a real Render "Environment Group" in the
+# dashboard, add both services to it, and replace both envVars lists
+# below with a single `- fromGroup: <your-group-name>` entry.
 
 services:
   - type: web
     name: school-saas-api
     runtime: docker
-    plan: starter # ~$7/month — free web-service tier's ephemeral disk would wipe every uploaded logo/payment-proof file on each restart/deploy
+    plan: starter # ~$7/month -- free web-service tier's ephemeral disk would wipe every uploaded logo/payment-proof file on each restart/deploy
     dockerfilePath: ./Dockerfile
     healthCheckPath: /up
     disk:
@@ -27,7 +42,7 @@ services:
       - key: APP_URL
         sync: false # set to your actual Render URL (or custom domain) after first deploy
       - key: APP_KEY
-        sync: false # generate locally with `php artisan key:generate --show` and paste it here — keep it FIXED, don't let the container regenerate it on every boot
+        sync: false # generate locally with `php artisan key:generate --show` and paste it here -- keep it FIXED, don't let the container regenerate it on every boot
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_HOST
@@ -45,7 +60,9 @@ services:
       - key: SESSION_DRIVER
         value: database
       - key: QUEUE_CONNECTION
-        value: database # backs Stage 54's queued exports -- see the cron job below for the worker
+        value: database # only matters if EXPORT_SYNC_MODE is set to false -- see below
+      - key: EXPORT_SYNC_MODE
+        value: "true" # hotfix default -- exports run inline within the request instead of depending on a queue worker. Flip to "false" only once you've verified the cron service below is actually running (see the hotfix README's verification steps), and understand that reintroduces request-timeout risk for very large exports until a real always-on worker is in place.
       - key: MAIL_MAILER
         sync: false
       - key: MAIL_HOST
@@ -61,14 +78,14 @@ services:
       - key: FRONTEND_URL
         sync: false # your Netlify URL, used for CORS / password-reset links
 
-  # Runs Laravel's scheduler every 5 minutes. This single cron tick
-  # drives everything registered in routes/console.php -- the daily
-  # billing-lifecycle check AND (from Stage 54) draining any queued
-  # exports via `queue:work --stop-when-empty`. Render bills Cron Jobs
-  # only for actual run time, not idle time, so this is far cheaper
-  # than an always-on worker service while pilot-scale export volume
-  # stays low. Uses the same Docker image as the web service so it has
-  # identical PHP/extensions/vendor -- no separate build to maintain.
+  # Runs Laravel's scheduler every 5 minutes -- this drives
+  # `billing:process-lifecycle` (trial expiry / grace periods, Stage 39)
+  # regardless of export mode, and ALSO drains the export queue via
+  # `queue:work --stop-when-empty` if you ever set EXPORT_SYNC_MODE back
+  # to false. Render bills Cron Jobs only for actual run time, not idle
+  # time. Uses the same Docker image as the web service -- no separate
+  # build to maintain. Needs its own copy of the DB/mail env vars below
+  # (see the hotfix note at the top of this file for why).
   - type: cron
     name: school-saas-scheduler
     runtime: docker
@@ -76,4 +93,37 @@ services:
     schedule: "*/5 * * * *"
     dockerCommand: php artisan schedule:run
     envVars:
-      - fromGroup: school-saas-api # reuses the web service's env vars -- set this up as an Environment Group in Render's dashboard once, or duplicate the envVars list above manually if you'd rather not use groups
+      - key: APP_ENV
+        value: production
+      - key: APP_KEY
+        sync: false # MUST be the exact same value as the web service's APP_KEY
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_DATABASE
+        value: postgres
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_SSLMODE
+        value: require
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: MAIL_MAILER
+        sync: false
+      - key: MAIL_HOST
+        sync: false
+      - key: MAIL_PORT
+        sync: false
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_FROM_ADDRESS
+        sync: false
+      - key: FRONTEND_URL
+        sync: false

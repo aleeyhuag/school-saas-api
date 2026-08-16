@@ -13,6 +13,7 @@ use App\Models\Term;
 use App\Models\TermResultApproval;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -152,6 +153,25 @@ class SyncController extends Controller
 
         $status = empty($conflicts) ? 'applied' : (empty($applied) ? 'conflict' : 'partial');
 
+        if (! empty($conflicts)) {
+            // Diagnostic aid: a conflict discovered on this ONLINE path
+            // (not the offline-queue path, where it's expected and
+            // normal) means the server had a newer change than the
+            // client knew about at the moment it saved — which is
+            // unusual for a same-session save. Logging the comparison
+            // inputs makes it possible to tell a real conflict apart
+            // from a bug (e.g. a clock/timezone issue) if this shows
+            // up more than the occasional legitimate case.
+            Log::info('Attendance sync conflict', [
+                'school_id' => $schoolId,
+                'user_id' => $user->id,
+                'school_class_id' => $validated['school_class_id'],
+                'date' => $validated['date'],
+                'client_recorded_at' => $recordedAt,
+                'conflicts' => $conflicts,
+            ]);
+        }
+
         $operation = SyncOperation::create([
             'client_uuid' => $validated['client_uuid'],
             'school_id' => $schoolId,
@@ -247,6 +267,16 @@ class SyncController extends Controller
         $isStaleConflict = $existingRow && $existingRow->updated_at->gt($recordedAt) && $hasDifferentValues;
 
         if ($isStaleConflict) {
+            Log::info('Score sync conflict', [
+                'school_id' => $user->school_id,
+                'user_id' => $user->id,
+                'student_id' => $validated['student_id'],
+                'subject_id' => $validated['subject_id'],
+                'term_id' => $validated['term_id'],
+                'client_recorded_at' => $recordedAt,
+                'server_updated_at' => $existingRow->updated_at->toIso8601String(),
+            ]);
+
             $operation = SyncOperation::create([
                 'client_uuid' => $validated['client_uuid'],
                 'school_id' => $user->school_id,

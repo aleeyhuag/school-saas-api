@@ -69,6 +69,29 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Export execution mode (Stage 54 hotfix)
+    |--------------------------------------------------------------------------
+    |
+    | true (default): ExportController runs ProcessExportJob synchronously,
+    | inline, within the same HTTP request that creates the Export row.
+    | No queue worker required — this is the reliable option on the
+    | current single Apache/mod_php web service, where there's no
+    | guaranteed background process draining the `jobs` table (the
+    | Render Cron Job approach depends on infra that turned out not to
+    | be reliably in place — see the Stage 54 hotfix README).
+    |
+    | false: reverts to the original design — ProcessExportJob::dispatch()
+    | pushes to the database queue, processed later by whatever's
+    | running `queue:work` (a properly configured Render Cron Job, or a
+    | real always-on worker service). Only flip this once that's
+    | actually verified working — see the README's verification steps.
+    |
+    | Switching this is an env change, not a code change.
+    */
+    'export_sync_mode' => env('EXPORT_SYNC_MODE', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |
