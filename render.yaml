@@ -1,6 +1,10 @@
-databases:
-  - name: school-saas-db
-    plan: basic-256mb # Render's cheapest PAID Postgres (~$6/month). Do NOT use the free option — it auto-deletes your entire database, no warning grace period past 14 days, after just 30 days. Fine for a throwaway test, not for real schools' data.
+# Database is hosted on Supabase, NOT Render's managed Postgres — do
+# not add a `databases:` block here for it. Get your connection details
+# from Supabase → Project Settings → Database → Connection parameters.
+# Use the "Session pooler" or "Transaction pooler" host (not the direct
+# connection) if you're on a Supabase plan where the direct connection
+# isn't reachable from outside their network — check your project's
+# connection page for which applies to you.
 
 services:
   - type: web
@@ -27,27 +31,21 @@ services:
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_HOST
-        fromDatabase:
-          name: school-saas-db
-          property: host
+        sync: false # Supabase project -> Settings -> Database -> connection pooler host
       - key: DB_PORT
-        fromDatabase:
-          name: school-saas-db
-          property: port
+        sync: false # 5432 for direct/session pooler, 6543 for Supabase's transaction pooler
       - key: DB_DATABASE
-        fromDatabase:
-          name: school-saas-db
-          property: database
+        value: postgres # Supabase's default database name, unless you renamed it
       - key: DB_USERNAME
-        fromDatabase:
-          name: school-saas-db
-          property: user
+        sync: false # Supabase connection username, e.g. postgres.xxxxxxxxxxxx for the pooler
       - key: DB_PASSWORD
-        fromDatabase:
-          name: school-saas-db
-          property: password
+        sync: false
+      - key: DB_SSLMODE
+        value: require # Supabase enforces SSL on external connections
       - key: SESSION_DRIVER
         value: database
+      - key: QUEUE_CONNECTION
+        value: database # backs Stage 54's queued exports -- see the cron job below for the worker
       - key: MAIL_MAILER
         sync: false
       - key: MAIL_HOST
@@ -62,3 +60,20 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false # your Netlify URL, used for CORS / password-reset links
+
+  # Runs Laravel's scheduler every 5 minutes. This single cron tick
+  # drives everything registered in routes/console.php -- the daily
+  # billing-lifecycle check AND (from Stage 54) draining any queued
+  # exports via `queue:work --stop-when-empty`. Render bills Cron Jobs
+  # only for actual run time, not idle time, so this is far cheaper
+  # than an always-on worker service while pilot-scale export volume
+  # stays low. Uses the same Docker image as the web service so it has
+  # identical PHP/extensions/vendor -- no separate build to maintain.
+  - type: cron
+    name: school-saas-scheduler
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    schedule: "*/5 * * * *"
+    dockerCommand: php artisan schedule:run
+    envVars:
+      - fromGroup: school-saas-api # reuses the web service's env vars -- set this up as an Environment Group in Render's dashboard once, or duplicate the envVars list above manually if you'd rather not use groups

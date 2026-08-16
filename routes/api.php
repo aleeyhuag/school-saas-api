@@ -20,6 +20,8 @@ require __DIR__.'/api-branches.php';
 require __DIR__.'/api-billing.php';
 require __DIR__.'/api-media.php';
 require __DIR__.'/api-governance.php';
+require __DIR__.'/api-exports.php';
+require __DIR__.'/api-sync.php';
 
 Route::get('/user', function (Request $request) {
     return $request->user();

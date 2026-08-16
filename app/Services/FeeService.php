@@ -37,8 +37,20 @@ class FeeService
             ->get()
             ->groupBy('fee_structure_id');
 
-        $breakdown = $structures->map(function ($structure) use ($payments) {
-            $paid = $payments->get($structure->id, collect())->sum('amount_paid');
+        return $this->buildStatus($student, $termId, $structures, $payments);
+    }
+
+    /**
+     * Shared assembly logic for one student's fee status, given
+     * fee structures and that student's payments (already grouped by
+     * fee_structure_id) — pure in-memory work, no queries. Used by
+     * studentFeeStatus() (single student, its own small queries above)
+     * and classDefaulters() (whole class, bulk-fetched once — see there).
+     */
+    protected function buildStatus(Student $student, int $termId, Collection $structures, Collection $paymentsByStructure): array
+    {
+        $breakdown = $structures->map(function ($structure) use ($paymentsByStructure) {
+            $paid = $paymentsByStructure->get($structure->id, collect())->sum('amount_paid');
 
             return [
                 'fee_structure_id' => $structure->id,
@@ -64,12 +76,42 @@ class FeeService
     /**
      * List every student in a class with an outstanding balance for
      * the term — this is the bursar's "defaulters" screen.
+     *
+     * Previously called studentFeeStatus() once per student, which ran
+     * 2 fresh queries (fee_structures + fee_payments) for every single
+     * student in the class — for a class of 50 students that's ~100
+     * queries computing overlapping data (the same fee structures for
+     * every student). Now fetches the class's fee structures and every
+     * relevant payment ONCE, then assembles each student's status
+     * purely in-memory.
      */
     public function classDefaulters(int $schoolClassId, int $termId): Collection
     {
-        return Student::where('school_class_id', $schoolClassId)
+        $students = Student::where('school_class_id', $schoolClassId)->get();
+
+        $structures = FeeStructure::where('term_id', $termId)
+            ->where(function ($q) use ($schoolClassId) {
+                $q->where('school_class_id', $schoolClassId)
+                    ->orWhereNull('school_class_id');
+            })
+            ->get();
+
+        $structureIds = $structures->pluck('id');
+        $studentIds = $students->pluck('id');
+
+        $paymentsByStudent = FeePayment::where('status', 'completed')
+            ->whereIn('student_id', $studentIds)
+            ->whereIn('fee_structure_id', $structureIds)
             ->get()
-            ->map(fn ($student) => $this->studentFeeStatus($student, $termId))
+            ->groupBy('student_id');
+
+        return $students
+            ->map(function ($student) use ($structures, $paymentsByStudent, $termId) {
+                $paymentsByStructure = ($paymentsByStudent->get($student->id) ?? collect())
+                    ->groupBy('fee_structure_id');
+
+                return $this->buildStatus($student, $termId, $structures, $paymentsByStructure);
+            })
             ->filter(fn ($status) => $status['total_balance'] > 0)
             ->values();
     }
