@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Storage;
 use App\Notifications\AccountSetupNotification;
 
 class StudentController extends Controller
@@ -253,5 +254,27 @@ class StudentController extends Controller
         $student->update($validated);
 
         return $student->load('schoolClass');
+    }
+
+    /**
+     * Stage 53 — upload or replace a student's ID card photo. Stored
+     * on the private disk (see MediaController::studentPhoto()'s
+     * docblock for why), with the old file cleaned up on replacement
+     * so uploads don't silently accumulate orphaned files.
+     */
+    public function uploadPhoto(Student $student)
+    {
+        request()->validate([
+            'photo' => ['required', 'image', 'mimes:jpeg,png,webp', 'max:2048'], // 2MB
+        ]);
+
+        if ($student->photo_path) {
+            Storage::disk('private')->delete($student->photo_path);
+        }
+
+        $path = request()->file('photo')->store('student-photos', 'private');
+        $student->update(['photo_path' => $path]);
+
+        return $student->fresh();
     }
 }

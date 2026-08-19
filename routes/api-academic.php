@@ -33,6 +33,7 @@ Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal']
     Route::apiResource('students', StudentController::class)->except(['index']);
     Route::post('students/{student}/guardians', [StudentController::class, 'syncGuardians']);
     Route::post('students/{student}/create-login', [StudentController::class, 'createLogin']);
+    Route::post('students/{student}/photo', [StudentController::class, 'uploadPhoto']);
     Route::post('students/bulk-import', BulkImportStudentsController::class);
 
     Route::get('promotions/options', [StudentPromotionController::class, 'options']);

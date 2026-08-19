@@ -7,6 +7,7 @@ use App\Models\SchoolClass;
 use App\Models\Student;
 use App\Models\TermResultApproval;
 use App\Notifications\ExportReadyNotification;
+use App\Services\IdCardPdfService;
 use App\Services\ReportCardPdfService;
 use App\Services\SchoolBackupService;
 use Illuminate\Bus\Queueable;
@@ -45,7 +46,7 @@ class ProcessExportJob implements ShouldQueue
 
     public function __construct(protected int $exportId) {}
 
-    public function handle(SchoolBackupService $backupService, ReportCardPdfService $pdfService): void
+    public function handle(SchoolBackupService $backupService, ReportCardPdfService $pdfService, IdCardPdfService $idCardService): void
     {
         $export = Export::find($this->exportId);
 
@@ -59,6 +60,8 @@ class ProcessExportJob implements ShouldQueue
             [$fullPath, $downloadName] = match ($export->type) {
                 'school_backup' => $this->runSchoolBackup($export, $backupService),
                 'report_card_class_bulk' => $this->runReportCardBulk($export, $pdfService),
+                'id_cards_bulk' => $this->runIdCardsBulk($export, $idCardService),
+                'id_cards_print_sheet' => $this->runIdCardsPrintSheet($export, $idCardService),
                 default => throw new \InvalidArgumentException("Unknown export type: {$export->type}"),
             };
 
@@ -180,5 +183,97 @@ class ProcessExportJob implements ShouldQueue
         $downloadName = str($schoolClass->full_name)->slug().'-report-cards.zip';
 
         return [$fullPath, $downloadName];
+    }
+
+    /**
+     * Every student in a class (or the whole school, if no class was
+     * specified), zipped as individual ID card PDFs — one file per
+     * student, CR80-sized, ready to send to a card printer.
+     */
+    protected function runIdCardsBulk(Export $export, IdCardPdfService $idCardService): array
+    {
+        $students = $this->resolveIdCardStudents($export);
+        $scopeLabel = $this->idCardScopeLabel($export);
+
+        $relativePath = 'exports/'.uniqid('id-cards-'.$export->school_id.'-', true).'.zip';
+        $fullPath = Storage::disk('private')->path($relativePath);
+        Storage::disk('private')->makeDirectory('exports');
+
+        $zip = new ZipArchive;
+        $zip->open($fullPath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+
+        foreach ($students as $student) {
+            $pdfOutput = $idCardService->buildSingle($student->id)->output();
+            $zip->addFromString(
+                $student->admission_number.'-'.str($student->full_name)->slug().'.pdf',
+                $pdfOutput
+            );
+        }
+
+        $zip->close();
+
+        return [$fullPath, str($scopeLabel)->slug().'-id-cards.zip'];
+    }
+
+    /**
+     * Same student set, but laid out several-per-page on A4 for
+     * printing on regular paper/cardstock and cutting out — the
+     * practical option for a school without a dedicated card printer.
+     */
+    protected function runIdCardsPrintSheet(Export $export, IdCardPdfService $idCardService): array
+    {
+        $students = $this->resolveIdCardStudents($export);
+        $scopeLabel = $this->idCardScopeLabel($export);
+
+        $pdfOutput = $idCardService->buildPrintSheet($students)->output();
+
+        $relativePath = 'exports/'.uniqid('id-cards-print-sheet-'.$export->school_id.'-', true).'.pdf';
+        $fullPath = Storage::disk('private')->path($relativePath);
+        Storage::disk('private')->makeDirectory('exports');
+        file_put_contents($fullPath, $pdfOutput);
+
+        return [$fullPath, str($scopeLabel)->slug().'-id-card-print-sheet.pdf'];
+    }
+
+    /**
+     * Shared by both ID card export types: `school_class_id` in params
+     * scopes to one class; its absence means "the whole school" —
+     * re-resolved here (not trusted from the original request) in
+     * case a student was moved, removed, or the class deleted in the
+     * gap between request and processing.
+     */
+    protected function resolveIdCardStudents(Export $export): \Illuminate\Support\Collection
+    {
+        $schoolClassId = $export->params['school_class_id'] ?? null;
+
+        $query = Student::where('school_id', $export->school_id)
+            ->where('status', 'active');
+
+        if ($schoolClassId) {
+            $query->where('school_class_id', $schoolClassId);
+        }
+
+        $students = $query->orderBy('first_name')->get();
+
+        if ($students->isEmpty()) {
+            throw ValidationException::withMessages([
+                'school_class_id' => [$schoolClassId
+                    ? 'This class has no active students.'
+                    : 'This school has no active students.'],
+            ]);
+        }
+
+        return $students;
+    }
+
+    protected function idCardScopeLabel(Export $export): string
+    {
+        $schoolClassId = $export->params['school_class_id'] ?? null;
+
+        if (! $schoolClassId) {
+            return $export->school?->name ?? 'school';
+        }
+
+        return SchoolClass::find($schoolClassId)?->full_name ?? 'class';
     }
 }

@@ -18,3 +18,6 @@ Route::get('media/logos/{path}', [MediaController::class, 'logo'])
 
 Route::get('media/payment-proofs/{payment}', [MediaController::class, 'paymentProof'])
     ->name('media.payment-proof');
+
+Route::get('media/student-photos/{student}', [MediaController::class, 'studentPhoto'])
+    ->name('media.student-photo');
