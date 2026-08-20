@@ -13,5 +13,6 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal'])->group(function () {
     Route::get('school-profile', [SchoolProfileController::class, 'show']);
     Route::post('school-profile', [SchoolProfileController::class, 'update']);
+    Route::post('school-profile/principal-signature', [SchoolProfileController::class, 'uploadPrincipalSignature']);
     Route::get('school-health', [SchoolHealthController::class, 'show']);
 });

@@ -38,4 +38,28 @@ class SchoolProfileController extends Controller
 
         return $school->fresh();
     }
+
+    /**
+     * A signature image printed on every ID card generated for this
+     * school (see IdCardPdfService) — proprietor or principal, either
+     * can upload/replace it; whichever of them actually holds the pen
+     * varies by school and isn't something worth restricting here.
+     */
+    public function uploadPrincipalSignature()
+    {
+        request()->validate([
+            'signature' => ['required', 'image', 'mimes:jpeg,png,webp', 'max:1024'], // 1MB — a signature scan doesn't need to be large
+        ]);
+
+        $school = Auth::user()->school;
+
+        if ($school->principal_signature_path) {
+            Storage::disk('public')->delete($school->principal_signature_path);
+        }
+
+        $path = request()->file('signature')->store('school-signatures', 'public');
+        $school->update(['principal_signature_path' => $path]);
+
+        return $school->fresh();
+    }
 }

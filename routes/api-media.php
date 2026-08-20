@@ -16,6 +16,9 @@ use Illuminate\Support\Facades\Route;
 Route::get('media/logos/{path}', [MediaController::class, 'logo'])
     ->where('path', '.*');
 
+Route::get('media/signatures/{path}', [MediaController::class, 'principalSignature'])
+    ->where('path', '.*');
+
 Route::get('media/payment-proofs/{payment}', [MediaController::class, 'paymentProof'])
     ->name('media.payment-proof');
 

@@ -10,8 +10,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class School extends Model
 {
     protected $fillable = [
-        'name', 'slug', 'email', 'phone', 'address', 'logo_path', 'is_active', 'school_group_id',
-        'deactivation_reason', 'payment_reference_code',
+        'name', 'slug', 'email', 'phone', 'address', 'logo_path', 'principal_signature_path',
+        'is_active', 'school_group_id', 'deactivation_reason', 'payment_reference_code',
     ];
 
     protected $casts = [
@@ -32,7 +32,7 @@ class School extends Model
      * Full public URL for the school's logo, or null if none is set —
      * appended to every School JSON response automatically.
      */
-    protected $appends = ['logo_url'];
+    protected $appends = ['logo_url', 'principal_signature_url'];
 
     public function getLogoUrlAttribute(): ?string
     {
@@ -41,6 +41,17 @@ class School extends Model
         // (relying on the public/storage symlink existing has been
         // unreliable on this project's Windows/XAMPP local setup).
         return $this->logo_path ? url('/api/media/logos/'.$this->logo_path) : null;
+    }
+
+    /**
+     * Same public disk/serving pattern as the logo — a school's own
+     * institutional signature isn't sensitive personal data the way a
+     * student's photo is, so there's no need for the private-disk
+     * treatment those get.
+     */
+    public function getPrincipalSignatureUrlAttribute(): ?string
+    {
+        return $this->principal_signature_path ? url('/api/media/signatures/'.$this->principal_signature_path) : null;
     }
 
     public function schoolGroup(): BelongsTo
