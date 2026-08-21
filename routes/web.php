@@ -15,7 +15,3 @@ Route::get('/', function () {
 Route::get('/verify/{token}', [VerifyController::class, 'show'])
     ->middleware('throttle:30,1')
     ->name('id-card.verify');
-
-// TEMPORARY — see routes/diagnostic.php's own docblock. Remove this
-// line and delete that file once we have an answer from it.
-require __DIR__.'/diagnostic.php';
