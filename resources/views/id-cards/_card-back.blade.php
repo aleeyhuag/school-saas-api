@@ -1,63 +1,48 @@
-<table class="id-card">
-    <tr>
-        <td class="id-card-inner">
-            <div class="card-back-header">{{ strtoupper($card['school']->name) }}</div>
+<div class="id-card-inner">
+    <div class="abs back-header">{{ strtoupper($card['school']->name) }}</div>
 
-            <div class="card-back-body">
-                <div class="card-back-pledge-title">STUDENT CODE OF CONDUCT</div>
-                <div class="card-back-pledge">
-                    <p>As a student of {{ $card['school']->name }}, I pledge to uphold the values of discipline, respect, honesty and hard work.</p>
-                    <ul>
-                        <li>I will be punctual, diligent and respectful.</li>
-                        <li>I will wear my uniform neatly at all times.</li>
-                        <li>I will care for school property and the environment.</li>
-                        <li>I will represent my school with pride and integrity.</li>
-                    </ul>
-                </div>
+    <div class="abs back-pledge-title">STUDENT CODE OF CONDUCT</div>
+    <div class="abs back-pledge">
+        As a student of {{ $card['school']->name }}, I pledge to uphold the
+        values of discipline, respect, honesty and hard work.
+    </div>
+    <div class="abs back-pledge-list">
+        <div>&bull; I will be punctual, diligent and respectful.</div>
+        <div>&bull; I will wear my uniform neatly at all times.</div>
+        <div>&bull; I will care for school property and the environment.</div>
+    </div>
 
-                <div class="card-back-emergency-title">IN CASE OF EMERGENCY, PLEASE CONTACT</div>
-                <table class="card-back-emergency-wrap">
-                    <tr>
-                        <td class="card-back-emergency-info">
-                            <table>
-                                <tr>
-                                    <td class="card-back-emergency-label">Name</td>
-                                    <td>{{ $card['student']->guardian_name ?: '—' }}</td>
-                                </tr>
-                                <tr>
-                                    <td class="card-back-emergency-label">Phone</td>
-                                    <td>{{ $card['student']->guardian_phone ?: '—' }}</td>
-                                </tr>
-                            </table>
-                        </td>
-                        <td class="card-back-qr-cell">
-                            <img src="{{ $card['qr_data_uri'] }}" class="card-back-qr" alt="">
-                            <div class="card-back-qr-label">SCAN TO VERIFY</div>
-                        </td>
-                    </tr>
-                </table>
-            </div>
+    <div class="abs back-emergency-title">IN CASE OF EMERGENCY, CONTACT</div>
+    <div class="abs back-emergency-row" style="top: 94pt;">
+        <span class="back-emergency-label">Name</span>
+        <span class="back-emergency-value">{{ $card['student']->guardian_name ?: '—' }}</span>
+    </div>
+    <div class="abs back-emergency-row" style="top: 102pt;">
+        <span class="back-emergency-label">Phone</span>
+        <span class="back-emergency-value">{{ $card['student']->guardian_phone ?: '—' }}</span>
+    </div>
 
-            <div class="card-back-footer">
-                <table class="card-back-signatures">
-                    <tr>
-                        <td class="card-back-signature-cell">
-                            <div class="card-back-signature-line"></div>
-                            <div class="card-back-signature-label">HOLDER'S SIGNATURE</div>
-                        </td>
-                        <td class="card-back-divider"></td>
-                        <td class="card-back-signature-cell">
-                            @if($card['signature_data_uri'])
-                                <img src="{{ $card['signature_data_uri'] }}" class="card-back-signature-img" alt="">
-                            @else
-                                <div class="card-back-signature-line"></div>
-                            @endif
-                            <div class="card-back-signature-label">PRINCIPAL'S SIGNATURE</div>
-                        </td>
-                    </tr>
-                </table>
-                <div class="card-back-notice">This ID card must be presented on demand. Not transferable.</div>
-            </div>
-        </td>
-    </tr>
-</table>
+    <img src="{{ $card['qr_data_uri'] }}" class="abs back-qr" alt="">
+    <div class="abs back-qr-label">SCAN TO VERIFY</div>
+
+    <div class="abs back-footer">
+        <div class="abs back-sign-cell-l">
+            @if($card['signature_data_uri'])
+                <img src="{{ $card['signature_data_uri'] }}" class="back-signature-img" alt="">
+            @else
+                <div class="back-signature-line"></div>
+            @endif
+            <div class="back-signature-label">HOLDER'S SIGNATURE</div>
+        </div>
+        <div class="abs back-sign-divider"></div>
+        <div class="abs back-sign-cell-r">
+            @if($card['signature_data_uri'])
+                <img src="{{ $card['signature_data_uri'] }}" class="back-signature-img" alt="">
+            @else
+                <div class="back-signature-line"></div>
+            @endif
+            <div class="back-signature-label">PRINCIPAL'S SIGNATURE</div>
+        </div>
+        <div class="abs back-notice">This ID card must be presented on demand. Not transferable.</div>
+    </div>
+</div>

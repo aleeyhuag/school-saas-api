@@ -5,11 +5,15 @@ FROM php:8.4-apache
 RUN apt-get update && apt-get install -y \
         libzip-dev \
         libpng-dev \
+        libjpeg62-turbo-dev \
+        libwebp-dev \
+        libfreetype6-dev \
         libonig-dev \
         libxml2-dev \
         libpq-dev \
         unzip \
         git \
+    && docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype \
     && docker-php-ext-install pdo_pgsql zip gd mbstring xml bcmath \
     && a2enmod rewrite \
     && a2enmod headers \

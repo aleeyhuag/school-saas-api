@@ -1,7 +1,24 @@
 {{--
-    Greenfield-reference design system for the default Skulag ID card.
-    Keep dimensions fixed: CR80 = 85.6mm x 54mm = 242.65pt x 153.07pt.
-    The same partial is used by both the individual PDF and A4 print sheet.
+    Absolute-positioning layout, replacing the previous stacked-table
+    design. Why: HTML table `height` is a MINIMUM, never a cap -- any
+    row needing slightly more room than declared (padding, borders, an
+    uncontrolled default line-height) makes the whole table taller
+    than stated, and with five separate stacked tables per card, any
+    one of them creeping past its budget pushes the total past
+    153.07pt -- which is exactly what was splitting each card across
+    two PDF pages. `overflow: hidden` doesn't reliably stop this in
+    dompdf specifically around table structures.
+
+    Absolute positioning sidesteps the whole problem: every element
+    gets an explicit top/left/width/height inside one fixed-size
+    `position: relative` container. Nothing can push the total card
+    height past 153.07pt, because nothing here depends on content flow
+    to determine size -- nothing to "accumulate". If text is too long
+    for its box, it clips within THAT element only (each has its own
+    overflow: hidden), never causing a new page.
+
+    Same CR80 dimensions, same color scheme and content as before --
+    only the positioning mechanism changed.
 --}}
 body {
     margin: 0;
@@ -18,349 +35,78 @@ body {
     padding: 0;
     page-break-after: always;
     page-break-inside: avoid;
-    overflow: hidden;
 }
-
 .id-card-page:last-child { page-break-after: auto; }
 
-.id-card {
-    width: 242.65pt;
-    height: 153.07pt;
-    border-collapse: collapse;
-    border-spacing: 0;
-    margin: 0;
-    padding: 0;
-    background: #ffffff;
-}
-
 .id-card-inner {
+    position: relative;
     width: 242.65pt;
     height: 153.07pt;
-    padding: 0;
-    margin: 0;
-    vertical-align: top;
     border: 1.1pt solid #0a4d3b;
     border-radius: 10pt;
-    overflow: hidden;
     background: #ffffff;
+    overflow: hidden;
 }
 
-/* ---------- SHARED ---------- */
-.green { color: #07533f; }
-.gold { color: #d9a52b; }
-
-.school-logo-wrap {
-    width: 35pt;
-    height: 35pt;
-    text-align: center;
-    vertical-align: middle;
-}
-.school-logo {
-    width: 33pt;
-    height: 33pt;
-    object-fit: contain;
-}
-.school-logo-placeholder {
-    width: 30pt;
-    height: 30pt;
-    border: 1pt solid #d9a52b;
-    border-radius: 50%;
-    color: #ffffff;
-    font-size: 10pt;
-    font-weight: bold;
-    line-height: 30pt;
-    text-align: center;
-}
+.abs { position: absolute; overflow: hidden; }
 
 /* ---------- FRONT ---------- */
-.card-front-header {
-    width: 100%;
-    height: 44pt;
-    background: #064b3a;
-    border-bottom: 2pt solid #d9a52b;
-}
-.card-front-header td { vertical-align: middle; }
-.card-front-header-content { padding: 5pt 9pt 4pt 9pt; }
-.card-front-school-name {
-    color: #ffffff;
-    font-size: 11.2pt;
-    line-height: 1.05;
-    font-weight: bold;
-    letter-spacing: 0.3pt;
-    text-transform: uppercase;
-}
-.card-front-school-subtitle {
-    color: #ffffff;
-    font-size: 5.5pt;
-    letter-spacing: 1.6pt;
-    margin-top: 2pt;
-}
-.card-front-title {
-    color: #d9a52b;
-    font-size: 5.2pt;
-    letter-spacing: 0.8pt;
-    font-weight: bold;
-    margin-top: 3pt;
-}
-.card-front-header-rule {
-    border-top: 0.8pt solid #d9a52b;
-    width: 55pt;
-    margin-top: 2pt;
-}
+.front-header { top: 0; left: 0; width: 242.65pt; height: 34pt; background: #064b3a; border-bottom: 2pt solid #d9a52b; }
+.front-logo-wrap { top: 3pt; left: 6pt; width: 28pt; height: 28pt; text-align: center; }
+.front-logo { width: 28pt; height: 28pt; object-fit: contain; }
+.front-logo-placeholder { width: 26pt; height: 26pt; border: 1pt solid #d9a52b; border-radius: 50%; color: #fff; font-size: 10pt; font-weight: bold; line-height: 26pt; text-align: center; }
+.front-school-name { top: 3pt; left: 40pt; width: 198pt; height: 11pt; color: #fff; font-size: 9.6pt; line-height: 11pt; font-weight: bold; letter-spacing: 0.2pt; text-transform: uppercase; }
+.front-subtitle { top: 15pt; left: 40pt; width: 198pt; height: 6pt; color: #fff; font-size: 5pt; line-height: 6pt; letter-spacing: 1.4pt; }
+.front-card-title { top: 23pt; left: 40pt; width: 198pt; height: 6pt; color: #d9a52b; font-size: 4.8pt; line-height: 6pt; letter-spacing: 0.6pt; font-weight: bold; }
 
-.card-front-main {
-    width: 100%;
-    height: 66pt;
-    border-collapse: collapse;
-}
-.card-front-photo-cell {
-    width: 76pt;
-    padding: 4pt 4pt 2pt 9pt;
-    vertical-align: top;
-}
-.card-front-photo-frame {
-    width: 67pt;
-    height: 59pt;
-    border: 1pt solid #d9a52b;
-    border-radius: 7pt;
-    overflow: hidden;
-    background: #f4f6f5;
-    text-align: center;
-    vertical-align: middle;
-}
-.card-front-photo {
-    width: 67pt;
-    height: 59pt;
-    object-fit: cover;
-}
-.card-front-photo-placeholder {
-    color: #a1aaa6;
-    font-size: 6pt;
-    letter-spacing: 0.8pt;
-    line-height: 59pt;
-}
+.front-photo-frame { top: 40pt; left: 8pt; width: 60pt; height: 62pt; border: 1pt solid #d9a52b; border-radius: 5pt; background: #f4f6f5; text-align: center; }
+.front-photo { width: 60pt; height: 62pt; object-fit: cover; border-radius: 4pt; }
+.front-photo-placeholder { width: 100%; color: #a1aaa6; font-size: 6pt; line-height: 62pt; text-align: center; }
 
-.card-front-details {
-    width: 153pt;
-    padding: 4pt 8pt 1pt 3pt;
-    vertical-align: top;
-}
-.card-front-name {
-    color: #07533f;
-    font-size: 10.8pt;
-    line-height: 1.05;
-    font-weight: bold;
-    text-transform: uppercase;
-    max-width: 145pt;
-}
-.card-front-name-rule {
-    border-top: 0.8pt solid #d9a52b;
-    width: 55pt;
-    margin-top: 3pt;
-    margin-bottom: 3pt;
-}
-.card-front-role {
-    color: #07533f;
-    font-size: 6pt;
-    font-weight: bold;
-    letter-spacing: 1.1pt;
-    text-transform: uppercase;
-    margin-bottom: 3pt;
-}
-.card-front-facts {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 6.1pt;
-}
-.card-front-facts td { padding: 1.1pt 0; vertical-align: top; }
-.card-front-fact-label {
-    width: 43pt;
-    color: #3f4d48;
-    font-weight: bold;
-    text-transform: uppercase;
-}
-.card-front-fact-value { color: #1b2622; }
-.card-front-session {
-    display: inline-block;
-    background: #07533f;
-    color: #ffffff;
-    font-size: 6pt;
-    font-weight: bold;
-    padding: 3pt 8pt;
-    border-radius: 9pt;
-    margin-top: 3pt;
-}
+.front-name { top: 41pt; left: 74pt; width: 162pt; height: 12pt; color: #07533f; font-size: 9.6pt; line-height: 11pt; font-weight: bold; text-transform: uppercase; }
+.front-name-rule { top: 55pt; left: 74pt; width: 46pt; height: 1pt; border-top: 0.8pt solid #d9a52b; }
+.front-role { top: 58pt; left: 74pt; width: 162pt; height: 7pt; color: #07533f; font-size: 5.6pt; line-height: 7pt; font-weight: bold; letter-spacing: 1pt; text-transform: uppercase; }
 
-.card-front-lower {
-    width: 100%;
-    height: 15pt;
-    border-collapse: collapse;
-}
-.card-front-brand-cell {
-    width: 115pt;
-    padding: 0 0 1pt 9pt;
-    vertical-align: bottom;
-}
-.card-front-brand {
-    color: #07533f;
-    font-size: 9pt;
-    font-weight: bold;
-    letter-spacing: -0.3pt;
-}
-.card-front-brand .ag { color: #d9a52b; font-size: 6pt; }
-.card-front-signature-cell {
-    width: 100pt;
-    padding: 0 9pt 0 0;
-    text-align: center;
-    vertical-align: bottom;
-}
-.card-front-signature-img {
-    width: 58pt;
-    height: 13pt;
-    object-fit: contain;
-}
-.card-front-signature-line {
-    width: 60pt;
-    height: 11pt;
-    border-bottom: 0.7pt solid #53635d;
-    margin: 0 auto;
-}
-.card-front-signature-label {
-    color: #07533f;
-    font-size: 5.3pt;
-    font-weight: bold;
-    letter-spacing: 0.8pt;
-    margin-top: 1pt;
-}
+.front-fact-row { left: 74pt; width: 162pt; height: 7pt; font-size: 6pt; line-height: 7pt; }
+.front-fact-label { position: absolute; left: 0; width: 40pt; color: #3f4d48; font-weight: bold; text-transform: uppercase; }
+.front-fact-value { position: absolute; left: 42pt; width: 118pt; color: #1b2622; }
 
-.card-front-contact {
-    width: 100%;
-    height: 13pt;
-    background: #064b3a;
-    color: #ffffff;
-    border-collapse: collapse;
-}
-.card-front-contact td {
-    padding: 2pt 4pt;
-    font-size: 4.4pt;
-    vertical-align: middle;
-    white-space: nowrap;
-}
-.card-front-contact-address { width: 145pt; padding-left: 9pt !important; }
-.card-front-contact-phone { width: 82pt; text-align: right; padding-right: 9pt !important; }
+.front-session { top: 90pt; left: 74pt; width: 90pt; height: 12pt; background: #07533f; color: #fff; font-size: 5.8pt; line-height: 12pt; font-weight: bold; padding-left: 7pt; border-radius: 8pt; }
 
-.card-front-footer {
-    width: 100%;
-    height: 13pt;
-    background: #d9a52b;
-    color: #1e2a24;
-    font-size: 4.6pt;
-    line-height: 13pt;
-    font-weight: bold;
-    text-align: center;
-    text-transform: uppercase;
-}
+.front-brand { top: 108pt; left: 8pt; width: 100pt; height: 10pt; color: #07533f; font-size: 8.5pt; line-height: 10pt; font-weight: bold; }
+.front-brand .ag { color: #d9a52b; font-size: 5.5pt; }
+
+.front-signature-img { top: 100pt; left: 160pt; width: 66pt; height: 15pt; object-fit: contain; }
+.front-signature-line { top: 108pt; left: 168pt; width: 58pt; height: 1pt; border-bottom: 0.7pt solid #53635d; }
+.front-signature-label { top: 111pt; left: 160pt; width: 66pt; height: 6pt; color: #07533f; font-size: 4.8pt; line-height: 6pt; font-weight: bold; letter-spacing: 0.6pt; text-align: center; }
+
+.front-contact { top: 124pt; left: 0; width: 242.65pt; height: 12pt; background: #064b3a; color: #fff; font-size: 4.3pt; line-height: 12pt; }
+.front-contact-address { position: absolute; left: 8pt; top: 0; width: 150pt; height: 12pt; white-space: nowrap; }
+.front-contact-phone { position: absolute; right: 8pt; top: 0; width: 76pt; height: 12pt; text-align: right; white-space: nowrap; }
+
+.front-footer { top: 137pt; left: 0; width: 242.65pt; height: 16.07pt; background: #d9a52b; color: #1e2a24; font-size: 4.4pt; line-height: 16.07pt; font-weight: bold; text-align: center; text-transform: uppercase; }
 
 /* ---------- BACK ---------- */
-.card-back-header {
-    width: 100%;
-    height: 30pt;
-    background: #064b3a;
-    border-bottom: 2pt solid #d9a52b;
-    color: #ffffff;
-    text-align: center;
-    font-size: 9.5pt;
-    line-height: 30pt;
-    font-weight: bold;
-    letter-spacing: 0.5pt;
-    text-transform: uppercase;
-}
-.card-back-body {
-    width: 100%;
-    height: 89pt;
-    padding: 6pt 9pt 0 9pt;
-    vertical-align: top;
-}
-.card-back-pledge-title,
-.card-back-emergency-title {
-    display: inline-block;
-    background: #07533f;
-    color: #ffffff;
-    font-size: 5.5pt;
-    font-weight: bold;
-    letter-spacing: 0.3pt;
-    padding: 3pt 8pt;
-    border-radius: 8pt;
-    text-transform: uppercase;
-}
-.card-back-pledge {
-    font-size: 5.2pt;
-    line-height: 1.35;
-    margin-top: 3pt;
-    color: #24302c;
-}
-.card-back-pledge p { margin: 0; }
-.card-back-pledge ul { margin: 2pt 0 0 8pt; padding: 0; }
-.card-back-pledge li { margin: 1pt 0; }
-.card-back-emergency-title { margin-top: 4pt; }
-.card-back-emergency-wrap {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 2pt;
-}
-.card-back-emergency-wrap td { vertical-align: middle; }
-.card-back-emergency-info { width: 130pt; font-size: 5.6pt; }
-.card-back-emergency-info td { padding: 1.2pt 0; }
-.card-back-emergency-label { width: 27pt; color: #4b5a54; font-weight: bold; }
-.card-back-qr-cell { width: 70pt; text-align: right; }
-.card-back-qr { width: 43pt; height: 43pt; object-fit: contain; }
-.card-back-qr-label { color: #53615b; font-size: 4.6pt; margin-top: 1pt; text-align: center; }
+.back-header { top: 0; left: 0; width: 242.65pt; height: 24pt; background: #064b3a; border-bottom: 2pt solid #d9a52b; color: #fff; font-size: 8.8pt; line-height: 24pt; font-weight: bold; letter-spacing: 0.4pt; text-align: center; text-transform: uppercase; }
 
-.card-back-footer {
-    width: 100%;
-    height: 32pt;
-    background: #064b3a;
-    color: #ffffff;
-    border-top: 1pt solid #d9a52b;
-}
-.card-back-signatures {
-    width: 100%;
-    border-collapse: collapse;
-    height: 22pt;
-}
-.card-back-signature-cell {
-    width: 50%;
-    text-align: center;
-    vertical-align: bottom;
-    padding: 1pt 8pt 0;
-}
-.card-back-signature-img {
-    width: 56pt;
-    height: 11pt;
-    object-fit: contain;
-}
-.card-back-signature-line {
-    width: 66pt;
-    height: 9pt;
-    border-bottom: 0.7pt solid #d9e0dc;
-    margin: 0 auto;
-}
-.card-back-signature-label {
-    color: #ffffff;
-    font-size: 4.8pt;
-    margin-top: 1pt;
-}
-.card-back-divider {
-    border-left: 0.6pt solid #d9a52b;
-    height: 15pt;
-}
-.card-back-notice {
-    height: 10pt;
-    background: #d9a52b;
-    color: #1e2a24;
-    font-size: 4.5pt;
-    line-height: 10pt;
-    font-weight: bold;
-    text-align: center;
-    text-transform: uppercase;
-}
+.back-pledge-title { top: 29pt; left: 9pt; width: 150pt; height: 10pt; background: #07533f; color: #fff; font-size: 5pt; line-height: 10pt; font-weight: bold; letter-spacing: 0.3pt; padding-left: 6pt; border-radius: 6pt; text-transform: uppercase; }
+.back-pledge { top: 41pt; left: 9pt; width: 225pt; height: 12pt; font-size: 4.8pt; line-height: 6.4pt; color: #24302c; }
+.back-pledge-list { top: 54pt; left: 9pt; width: 225pt; height: 26pt; font-size: 4.6pt; line-height: 6.2pt; color: #24302c; }
+.back-pledge-list div { margin-bottom: 0.6pt; }
+
+.back-emergency-title { top: 82pt; left: 9pt; width: 150pt; height: 10pt; background: #07533f; color: #fff; font-size: 5pt; line-height: 10pt; font-weight: bold; letter-spacing: 0.3pt; padding-left: 6pt; border-radius: 6pt; text-transform: uppercase; }
+.back-emergency-row { left: 9pt; width: 150pt; height: 7pt; font-size: 5.6pt; line-height: 7pt; }
+.back-emergency-label { position: absolute; left: 0; width: 28pt; color: #4b5a54; font-weight: bold; }
+.back-emergency-value { position: absolute; left: 30pt; width: 118pt; color: #1b2622; }
+
+.back-qr { top: 66pt; left: 180pt; width: 40pt; height: 40pt; object-fit: contain; }
+.back-qr-label { top: 107pt; left: 172pt; width: 56pt; height: 6pt; color: #53615b; font-size: 4.4pt; line-height: 6pt; text-align: center; }
+
+.back-footer { top: 130pt; left: 0; width: 242.65pt; height: 23.07pt; background: #064b3a; border-top: 1pt solid #d9a52b; }
+.back-sign-cell-l { top: 3pt; left: 12pt; width: 100pt; height: 15pt; text-align: center; }
+.back-sign-cell-r { top: 3pt; left: 130pt; width: 100pt; height: 15pt; text-align: center; }
+.back-sign-divider { top: 4pt; left: 121pt; width: 1pt; height: 13pt; border-left: 0.6pt solid #d9a52b; }
+.back-signature-img { width: 60pt; height: 11pt; object-fit: contain; display: block; margin: 0 auto; }
+.back-signature-line { width: 66pt; height: 1pt; border-bottom: 0.7pt solid #d9e0dc; margin: 4pt auto 0; }
+.back-signature-label { color: #fff; font-size: 4.3pt; line-height: 6pt; margin-top: 1pt; }
+.back-notice { top: 18pt; left: 0; width: 242.65pt; height: 5pt; background: #d9a52b; color: #1e2a24; font-size: 4pt; line-height: 5pt; font-weight: bold; text-align: center; text-transform: uppercase; }

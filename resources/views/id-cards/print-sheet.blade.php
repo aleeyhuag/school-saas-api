@@ -8,8 +8,18 @@
         @include('id-cards._card-styles')
         .sheet-page { page-break-after: always; }
         .sheet-page:last-child { page-break-after: auto; }
-        .sheet-grid { width: 100%; border-collapse: separate; border-spacing: 10pt; }
-        .sheet-grid td { padding: 0; vertical-align: top; }
+        {{--
+            table-layout: fixed + an explicit width (242.65pt per
+            column, exactly matching the card's own width, rather than
+            width: 100%) is what makes column sizing deterministic.
+            Without it, the table stretches to fill the full A4
+            content width and lets the browser/dompdf's auto-layout
+            algorithm decide how to distribute the extra space --
+            which is the most likely explanation for cards rendering
+            smaller than intended relative to the page.
+        --}}
+        .sheet-grid { width: 505.3pt; table-layout: fixed; border-collapse: separate; border-spacing: 10pt; }
+        .sheet-grid td { width: 242.65pt; padding: 0; vertical-align: top; }
         .sheet-page-label { font-size: 7pt; color: #7d8883; margin-bottom: 4pt; }
     </style>
 </head>
