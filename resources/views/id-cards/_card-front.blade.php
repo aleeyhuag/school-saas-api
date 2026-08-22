@@ -40,8 +40,6 @@
         <div class="abs front-session">{{ $card['session_name'] }}</div>
     @endif
 
-    <div class="abs front-brand">Skulag<span class="ag"> by AG KOMPUTECH</span></div>
-
     @if($card['signature_data_uri'])
         <img src="{{ $card['signature_data_uri'] }}" class="abs front-signature-img" alt="">
     @else

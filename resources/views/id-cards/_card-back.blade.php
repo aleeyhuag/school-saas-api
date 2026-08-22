@@ -27,11 +27,7 @@
 
     <div class="abs back-footer">
         <div class="abs back-sign-cell-l">
-            @if($card['signature_data_uri'])
-                <img src="{{ $card['signature_data_uri'] }}" class="back-signature-img" alt="">
-            @else
-                <div class="back-signature-line"></div>
-            @endif
+            <div class="back-signature-line"></div>
             <div class="back-signature-label">HOLDER'S SIGNATURE</div>
         </div>
         <div class="abs back-sign-divider"></div>

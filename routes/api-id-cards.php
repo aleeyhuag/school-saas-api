@@ -15,5 +15,10 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal|teacher'])->group(function () {
-    Route::get('id-cards/{studentId}', [IdCardController::class, 'show']);
+    Route::get('id-cards/{studentId}/download-url', [IdCardController::class, 'requestDownloadUrl']);
 });
+
+// Reached only via the signed URL the route above returns — see
+// IdCardController's docblock for why this isn't behind auth:sanctum.
+Route::get('id-cards/{studentId}/download', [IdCardController::class, 'show'])
+    ->name('id-card.download');
