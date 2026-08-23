@@ -10,7 +10,7 @@ use App\Models\TermResultApproval;
 use App\Services\ReportCardPdfService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
 use ZipArchive;
 
@@ -36,11 +36,63 @@ class ReportCardController extends Controller
         $termId = (int) request()->input('term_id');
         $user = Auth::user();
 
-        if ($user->hasRole('student') && $user->student?->id !== $studentId) {
+        $this->authorizeSingleDownload($student, $termId, $user);
+
+        $filename = str($student->full_name)->slug().'-report-card.pdf';
+
+        return $this->pdfService->build($studentId, $termId)->download($filename);
+    }
+
+    /**
+     * Authenticated step for student/parent report-card downloads.
+     * Returns a short-lived signed URL so the actual PDF can be opened by
+     * normal browser navigation rather than an authenticated blob fetch.
+     * This mirrors the proven ID-card/export download architecture.
+     */
+    public function requestDownloadUrl(int $studentId)
+    {
+        request()->validate([
+            'term_id' => ['required', 'integer', 'exists:terms,id'],
+        ]);
+
+        $student = Student::findOrFail($studentId);
+        $termId = (int) request()->input('term_id');
+        $this->authorizeSingleDownload($student, $termId, Auth::user());
+
+        $url = URL::temporarySignedRoute(
+            'report-card.download',
+            now()->addMinutes(10),
+            ['studentId' => $studentId, 'termId' => $termId]
+        );
+
+        return response()->json(['download_url' => $url]);
+    }
+
+    /**
+     * Signed, unauthenticated browser-navigation endpoint. The signature
+     * is only issued after the authenticated authorization check above.
+     */
+    public function showSigned(int $studentId, int $termId)
+    {
+        abort_unless(request()->hasValidSignature(), 403, 'This download link is invalid or has expired.');
+
+        $student = Student::findOrFail($studentId);
+        $filename = str($student->full_name)->slug().'-report-card.pdf';
+
+        return $this->pdfService->build($studentId, $termId)->download($filename);
+    }
+
+    protected function authorizeSingleDownload(Student $student, int $termId, $user): void
+    {
+        if ((int) $student->school_id !== (int) $user->school_id) {
+            abort(403, 'This student does not belong to your school.');
+        }
+
+        if ($user->hasRole('student') && $user->student?->id !== $student->id) {
             abort(403, 'You can only download your own report card.');
         }
 
-        if ($user->hasRole('parent') && ! $user->children()->where('students.id', $studentId)->exists()) {
+        if ($user->hasRole('parent') && ! $user->children()->where('students.id', $student->id)->exists()) {
             abort(403, "You can only download your own children's report cards.");
         }
 
@@ -56,40 +108,8 @@ class ReportCardController extends Controller
                 ->exists();
 
             if (! $isApproved) {
-                return response()->json([
-                    'message' => 'This term\'s result has not yet been published by the class teacher.',
-                ], 403);
+                abort(403, 'This term\'s result has not yet been published by the class teacher.');
             }
-        }
-
-        $filename = str($student->full_name)->slug().'-report-card.pdf';
-
-        try {
-            return $this->pdfService->build($studentId, $termId)->download($filename);
-        } catch (\Throwable $e) {
-            Log::error('Report card PDF generation failed', [
-                'student_id' => $studentId,
-                'term_id' => $termId,
-                'exception' => $e,
-            ]);
-
-            // Keep local development's useful exception visible, while
-            // replacing the old opaque production 500 with an actionable
-            // message that points directly at the PDF/image runtime.
-            if (! app()->isProduction()) {
-                throw $e;
-            }
-
-            $gdReady = function_exists('imagecreatetruecolor')
-                && function_exists('imagecreatefrompng')
-                && function_exists('imagejpeg');
-
-            return response()->json([
-                'message' => $gdReady
-                    ? 'The report card PDF could not be generated on the server. The error has been logged; please try again or contact support if it continues.'
-                    : 'Report card PDF generation is unavailable because the API server\'s GD image extension is not available. Please redeploy the API with the current Dockerfile, then try again.',
-                'code' => $gdReady ? 'report_card_pdf_failed' : 'pdf_gd_unavailable',
-            ], $gdReady ? 500 : 503);
         }
     }
 

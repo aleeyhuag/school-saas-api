@@ -23,12 +23,17 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal|exam_officer|teacher|parent|student'])->group(function () {
+    Route::get('report-cards/{studentId}/download-url', [ReportCardController::class, 'requestDownloadUrl']);
     Route::get('report-cards/{studentId}', [ReportCardController::class, 'show']);
 });
 
 Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal|teacher'])->group(function () {
     Route::get('classes/{schoolClassId}/report-cards/export', [ReportCardController::class, 'classBulk']);
 });
+
+// Signed browser-navigation endpoint for a single report-card PDF.
+Route::get('report-cards/{studentId}/download/{termId}', [ReportCardController::class, 'showSigned'])
+    ->name('report-card.download');
 
 Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal|exam_officer'])->group(function () {
     Route::get('results/export', [ResultExportController::class, 'export']);
