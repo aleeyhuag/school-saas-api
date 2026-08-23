@@ -1,3 +1,17 @@
+{{--
+    Every element here is a DIRECT child of .id-card-inner -- none are
+    nested inside another position:absolute/relative wrapper. This
+    isn't a style preference: dompdf has a long-standing, still-open
+    limitation where a nested position:absolute element does NOT
+    reliably use its immediate positioned ancestor as its reference
+    point (falls back to the page/body instead) -- confirmed across
+    several dompdf GitHub issues going back over a decade. That was
+    the real cause of the overlap bugs, not the individual coordinate
+    tweaks from earlier rounds. Purely visual background bands (the
+    contact strip, the footer band) stay as their own div for the
+    fill/border, but everything with actual text content sits
+    alongside them as an independent, flat sibling.
+--}}
 <div class="id-card-inner">
     <div class="abs front-header"></div>
     <div class="abs front-logo-wrap">
@@ -23,18 +37,12 @@
     <div class="abs front-name-rule"></div>
     <div class="abs front-role">STUDENT</div>
 
-    <div class="abs front-fact-row" style="top: 68pt;">
-        <span class="front-fact-label">Adm No.</span>
-        <span class="front-fact-value">{{ $card['student']->admission_number ?: '—' }}</span>
-    </div>
-    <div class="abs front-fact-row" style="top: 76pt;">
-        <span class="front-fact-label">Class</span>
-        <span class="front-fact-value">{{ $card['class_name'] }}</span>
-    </div>
-    <div class="abs front-fact-row" style="top: 84pt;">
-        <span class="front-fact-label">D.O.B.</span>
-        <span class="front-fact-value">{{ $card['student']->date_of_birth ? $card['student']->date_of_birth->format('d M Y') : '—' }}</span>
-    </div>
+    <div class="abs front-fact-label" style="top: 68pt;">Adm No.</div>
+    <div class="abs front-fact-value" style="top: 68pt;">{{ $card['student']->admission_number ?: '—' }}</div>
+    <div class="abs front-fact-label" style="top: 76pt;">Class</div>
+    <div class="abs front-fact-value" style="top: 76pt;">{{ $card['class_name'] }}</div>
+    <div class="abs front-fact-label" style="top: 84pt;">D.O.B.</div>
+    <div class="abs front-fact-value" style="top: 84pt;">{{ $card['student']->date_of_birth ? $card['student']->date_of_birth->format('d M Y') : '—' }}</div>
 
     @if($card['session_name'])
         <div class="abs front-session">{{ $card['session_name'] }}</div>
@@ -47,10 +55,9 @@
     @endif
     <div class="abs front-signature-label">PRINCIPAL</div>
 
-    <div class="abs front-contact">
-        <div class="front-contact-address">{{ $card['address_short'] ?: 'School Office' }}</div>
-        <div class="front-contact-phone">{{ $card['contact_short'] ?: 'Contact School' }}</div>
-    </div>
+    <div class="abs front-contact"></div>
+    <div class="abs front-contact-address">{{ $card['address_short'] ?: 'School Office' }}</div>
+    <div class="abs front-contact-phone">{{ $card['contact_short'] ?: 'Contact School' }}</div>
 
     <div class="abs front-footer">
         Issued {{ $card['issued_on'] }} &nbsp;&bull;&nbsp; Property of {{ strtoupper($card['school']->name) }}

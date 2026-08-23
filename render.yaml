@@ -30,7 +30,18 @@ services:
     healthCheckPath: /up
     disk:
       name: school-saas-uploads
-      mountPath: /var/www/html/storage/app/public
+      # Was mounted at .../storage/app/public only -- student photos
+      # live on the PRIVATE disk (storage/app/private), which that
+      # path doesn't cover at all. Every redeploy resets the
+      # container's ephemeral filesystem, so anything under
+      # storage/app/private was being wiped out on every single
+      # deploy -- including this one. Mounting one level higher, at
+      # storage/app itself, covers both public/ and private/ under
+      # the same persistent volume. storage/framework and
+      # storage/logs deliberately stay off this disk -- cache/session/
+      # log files don't need to survive a deploy, and regenerating
+      # them fresh is normal.
+      mountPath: /var/www/html/storage/app
       sizeGB: 1
     envVars:
       - key: APP_NAME
