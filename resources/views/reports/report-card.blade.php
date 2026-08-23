@@ -41,8 +41,8 @@
     <table class="header">
         <tr>
             <td style="width: 70px;">
-                @if($school->logo_url)
-                    <img src="{{ $school->logo_url }}" class="logo">
+                @if($logo_data_uri)
+                    <img src="{{ $logo_data_uri }}" class="logo">
                 @endif
             </td>
             <td>

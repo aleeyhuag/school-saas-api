@@ -35,6 +35,8 @@ class ResultService
      */
     protected array $subjectPositionsCache = [];
     protected array $overallPositionCache = [];
+    protected array $settingsCache = [];
+    protected array $gradeBoundariesCache = [];
 
     /**
      * Compute one student's result for one subject in one term.
@@ -232,18 +234,39 @@ class ResultService
 
     protected function settingsFor(int $schoolId): AssessmentSetting
     {
-        return AssessmentSetting::firstOrCreate(
-            ['school_id' => $schoolId],
-            ['ca_weight' => 30, 'assignment_weight' => 10, 'exam_weight' => 60]
-        );
+        if (isset($this->settingsCache[$schoolId])) {
+            return $this->settingsCache[$schoolId];
+        }
+
+        // Result reads must not perform a write. The old firstOrCreate()
+        // here meant a marksheet/report-card GET could unexpectedly try to
+        // INSERT an assessment-settings row. Apart from unnecessary DB work,
+        // that can fail under a restricted production DB role and turn an
+        // otherwise read-only result request into a 500.
+        $settings = AssessmentSetting::where('school_id', $schoolId)->first();
+
+        if (! $settings) {
+            $settings = new AssessmentSetting([
+                'school_id' => $schoolId,
+                'ca_weight' => 30,
+                'assignment_weight' => 10,
+                'exam_weight' => 60,
+            ]);
+        }
+
+        return $this->settingsCache[$schoolId] = $settings;
     }
 
     protected function gradeFor(int $schoolId, float $totalScore): ?string
     {
-        $boundary = GradeBoundary::where('school_id', $schoolId)
-            ->where('min_score', '<=', $totalScore)
-            ->where('max_score', '>=', $totalScore)
-            ->first();
+        if (! array_key_exists($schoolId, $this->gradeBoundariesCache)) {
+            $this->gradeBoundariesCache[$schoolId] = GradeBoundary::where('school_id', $schoolId)
+                ->orderBy('min_score')
+                ->get(['grade', 'min_score', 'max_score']);
+        }
+
+        $boundary = $this->gradeBoundariesCache[$schoolId]
+            ->first(fn ($row) => $totalScore >= (float) $row->min_score && $totalScore <= (float) $row->max_score);
 
         return $boundary?->grade;
     }
