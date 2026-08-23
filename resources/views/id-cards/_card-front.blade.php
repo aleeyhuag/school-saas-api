@@ -22,7 +22,6 @@
         @endif
     </div>
     <div class="abs front-school-name">{{ strtoupper($card['school']->name) }}</div>
-    <div class="abs front-subtitle">ACADEMY</div>
     <div class="abs front-card-title">STUDENT IDENTITY CARD</div>
 
     <div class="abs front-photo-frame">

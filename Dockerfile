@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
         git \
     && docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype \
     && docker-php-ext-install pdo_pgsql zip gd mbstring xml bcmath \
+    && php -r 'if (!extension_loaded("gd") || !function_exists("imagecreatefrompng") || !function_exists("imagejpeg")) { fwrite(STDERR, "GD with PNG/JPEG support is required\n"); exit(1); }' \
     && a2enmod rewrite \
     && a2enmod headers \
     && rm -rf /var/lib/apt/lists/*

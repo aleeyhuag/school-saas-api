@@ -53,7 +53,7 @@ body {
 .front-logo-wrap { top: 3pt; left: 6pt; width: 28pt; height: 28pt; text-align: center; }
 .front-logo { width: 28pt; height: 28pt; object-fit: contain; }
 .front-logo-placeholder { width: 26pt; height: 26pt; border: 1pt solid #1F5C4A; border-radius: 50%; color: #1F5C4A; font-size: 10pt; font-weight: bold; line-height: 26pt; text-align: center; }
-.front-school-name { top: 3pt; left: 40pt; width: 198pt; height: 11pt; color: #1F5C4A; font-size: 9.2pt; line-height: 11pt; font-weight: bold; letter-spacing: 0.15pt; text-transform: uppercase; white-space: nowrap; }
+.front-school-name { top: 3pt; left: 40pt; width: 198pt; height: 11pt; color: #1F5C4A; font-size: 9.6pt; line-height: 11pt; font-weight: bold; letter-spacing: 0.2pt; text-transform: uppercase; white-space: nowrap; }
 .front-subtitle { top: 15pt; left: 40pt; width: 198pt; height: 6pt; color: #666; font-size: 5pt; line-height: 6pt; letter-spacing: 1.4pt; }
 .front-card-title { top: 23pt; left: 40pt; width: 198pt; height: 6pt; color: #666; font-size: 4.8pt; line-height: 6pt; letter-spacing: 0.6pt; font-weight: bold; }
 
@@ -61,36 +61,36 @@ body {
 .front-photo { width: 60pt; height: 62pt; object-fit: cover; border-radius: 4pt; }
 .front-photo-placeholder { width: 100%; color: #a1aaa6; font-size: 6pt; line-height: 62pt; text-align: center; }
 
-.front-name { top: 41pt; left: 74pt; width: 162pt; height: 12pt; color: #1a1a1a; font-size: 8.6pt; line-height: 10pt; font-weight: bold; text-transform: uppercase; white-space: nowrap; }
+.front-name { top: 41pt; left: 74pt; width: 162pt; height: 12pt; color: #1a1a1a; font-size: 9.2pt; line-height: 11pt; font-weight: bold; text-transform: uppercase; white-space: nowrap; }
 .front-name-rule { top: 55pt; left: 74pt; width: 46pt; height: 1pt; border-top: 0.8pt solid #ccc; }
-.front-role { top: 58pt; left: 74pt; width: 162pt; height: 7pt; color: #555; font-size: 5.1pt; line-height: 7pt; font-weight: bold; letter-spacing: 0.9pt; text-transform: uppercase; }
+.front-role { top: 58pt; left: 74pt; width: 162pt; height: 7pt; color: #555; font-size: 5.4pt; line-height: 7pt; font-weight: bold; letter-spacing: 1pt; text-transform: uppercase; }
 
-.front-fact-label { left: 74pt; width: 40pt; height: 7pt; color: #666; font-size: 5.4pt; line-height: 7pt; font-weight: bold; text-transform: uppercase; white-space: nowrap; }
-.front-fact-value { left: 116pt; width: 122pt; height: 7pt; color: #1a1a1a; font-size: 5.4pt; line-height: 7pt; white-space: nowrap; }
+.front-fact-label { left: 74pt; width: 40pt; height: 7pt; color: #666; font-size: 5.8pt; line-height: 7pt; font-weight: bold; text-transform: uppercase; white-space: nowrap; }
+.front-fact-value { left: 116pt; width: 122pt; height: 7pt; color: #1a1a1a; font-size: 5.8pt; line-height: 7pt; white-space: nowrap; }
 
-.front-session { top: 93.5pt; left: 74pt; width: 82pt; height: 11pt; box-sizing: border-box; background: #eaf2ef; border: 0.75pt solid #1F5C4A; color: #1F5C4A; font-size: 5.2pt; line-height: 9.5pt; font-weight: bold; text-align: center; padding: 0; border-radius: 8pt; }
+.front-session { top: 93pt; left: 74pt; width: 80pt; height: 12pt; background: #eaf2ef; border: 0.75pt solid #1F5C4A; color: #1F5C4A; font-size: 5.6pt; line-height: 12pt; font-weight: bold; padding-left: 7pt; border-radius: 8pt; }
 
 .front-signature-img { top: 100pt; left: 160pt; width: 66pt; height: 15pt; object-fit: contain; }
 .front-signature-line { top: 108pt; left: 168pt; width: 58pt; height: 1pt; border-bottom: 0.7pt solid #999; }
 .front-signature-label { top: 111pt; left: 160pt; width: 66pt; height: 6pt; color: #555; font-size: 4.8pt; line-height: 6pt; font-weight: bold; letter-spacing: 0.6pt; text-align: center; }
 
 .front-contact { top: 124pt; left: 0; width: 242.65pt; height: 12pt; background: #ffffff; border-top: 0.6pt solid #ddd; }
-.front-contact-address { top: 124pt; left: 8pt; width: 150pt; height: 12pt; color: #555; font-size: 4pt; line-height: 8pt; white-space: nowrap; }
-.front-contact-phone { top: 124pt; right: 8pt; width: 76pt; height: 12pt; color: #555; font-size: 4pt; line-height: 8pt; text-align: right; white-space: nowrap; }
+.front-contact-address { top: 124pt; left: 8pt; width: 150pt; height: 12pt; color: #555; font-size: 4.3pt; line-height: 12pt; white-space: nowrap; }
+.front-contact-phone { top: 124pt; right: 8pt; width: 76pt; height: 12pt; color: #555; font-size: 4.3pt; line-height: 12pt; text-align: right; white-space: nowrap; }
 
-.front-footer { top: 137pt; left: 0; width: 242.65pt; height: 16.07pt; box-sizing: border-box; background: #f5f5f5; border-top: 0.6pt solid #ddd; color: #555; font-size: 3.9pt; line-height: 7pt; font-weight: bold; text-align: center; text-transform: uppercase; padding: 4pt 5pt 0; }
+.front-footer { top: 137pt; left: 0; width: 242.65pt; height: 16.07pt; background: #f5f5f5; border-top: 0.6pt solid #ddd; color: #555; font-size: 4.4pt; line-height: 16.07pt; font-weight: bold; text-align: center; text-transform: uppercase; }
 
 /* ---------- BACK ---------- */
-.back-header { top: 0; left: 0; width: 242.65pt; height: 24pt; background: #ffffff; border-bottom: 2pt solid #1F5C4A; color: #1F5C4A; font-size: 8.8pt; line-height: 24pt; font-weight: bold; letter-spacing: 0.4pt; text-align: center; text-transform: uppercase; }
+.back-header { top: 0; left: 0; width: 242.65pt; height: 22pt; background: #ffffff; border-bottom: 2pt solid #1F5C4A; color: #1F5C4A; font-size: 8.8pt; line-height: 20pt; font-weight: bold; letter-spacing: 0.4pt; text-align: center; text-transform: uppercase; }
 
-.back-pledge-title { top: 28.5pt; left: 9pt; width: 165pt; height: 11pt; box-sizing: border-box; background: #eaf2ef; border: 0.75pt solid #1F5C4A; color: #1F5C4A; font-size: 4.6pt; line-height: 8pt; font-weight: bold; letter-spacing: 0.15pt; padding: 0 5pt; border-radius: 6pt; text-align: left; text-transform: uppercase; white-space: nowrap; }
-.back-pledge { top: 41pt; left: 9pt; width: 225pt; height: 14pt; font-size: 4.5pt; line-height: 6.1pt; color: #333; }
-.back-pledge-list { top: 56pt; left: 9pt; width: 225pt; height: 24pt; font-size: 4.4pt; line-height: 5.8pt; color: #333; }
+.back-pledge-title { top: 27pt; left: 9pt; width: 150pt; height: 10pt; background: #eaf2ef; border: 0.75pt solid #1F5C4A; color: #1F5C4A; font-size: 5pt; line-height: 10pt; font-weight: bold; letter-spacing: 0.3pt; padding-left: 6pt; border-radius: 6pt; text-transform: uppercase; }
+.back-pledge { top: 39pt; left: 9pt; width: 225pt; height: 14pt; font-size: 4.8pt; line-height: 6.4pt; color: #333; }
+.back-pledge-list { top: 54pt; left: 9pt; width: 225pt; height: 24pt; font-size: 4.6pt; line-height: 6.2pt; color: #333; }
 .back-pledge-list div { margin-bottom: 0.6pt; }
 
-.back-emergency-title { top: 81.5pt; left: 9pt; width: 165pt; height: 11pt; box-sizing: border-box; background: #eaf2ef; border: 0.75pt solid #1F5C4A; color: #1F5C4A; font-size: 4.6pt; line-height: 8pt; font-weight: bold; letter-spacing: 0.15pt; padding: 0 5pt; border-radius: 6pt; text-align: left; text-transform: uppercase; white-space: nowrap; }
-.back-emergency-label { left: 9pt; width: 28pt; height: 7pt; color: #666; font-size: 5.1pt; line-height: 7pt; font-weight: bold; white-space: nowrap; }
-.back-emergency-value { left: 39pt; width: 120pt; height: 7pt; color: #1a1a1a; font-size: 5.1pt; line-height: 7pt; white-space: nowrap; }
+.back-emergency-title { top: 80pt; left: 9pt; width: 150pt; height: 10pt; background: #eaf2ef; border: 0.75pt solid #1F5C4A; color: #1F5C4A; font-size: 5pt; line-height: 10pt; font-weight: bold; letter-spacing: 0.3pt; padding-left: 6pt; border-radius: 6pt; text-transform: uppercase; }
+.back-emergency-label { left: 9pt; width: 28pt; height: 7pt; color: #666; font-size: 5.4pt; line-height: 7pt; font-weight: bold; white-space: nowrap; }
+.back-emergency-value { left: 39pt; width: 120pt; height: 7pt; color: #1a1a1a; font-size: 5.4pt; line-height: 7pt; white-space: nowrap; }
 
 .back-qr { top: 66pt; left: 180pt; width: 40pt; height: 40pt; object-fit: contain; }
 .back-qr-label { top: 107pt; left: 172pt; width: 56pt; height: 6pt; color: #777; font-size: 4.4pt; line-height: 6pt; text-align: center; }
@@ -101,5 +101,5 @@ body {
 .back-sign-divider { top: 134pt; left: 121pt; width: 1pt; height: 13pt; border-left: 0.6pt solid #ccc; }
 .back-signature-img { width: 60pt; height: 11pt; object-fit: contain; display: block; margin: 0 auto; }
 .back-signature-line { width: 66pt; height: 1pt; border-bottom: 0.7pt solid #999; margin: 4pt auto 0; }
-.back-signature-label { color: #555; font-size: 4.1pt; line-height: 5.5pt; margin-top: 0.5pt; }
-.back-notice { top: 146.5pt; left: 0; width: 242.65pt; height: 6.5pt; box-sizing: border-box; background: #f5f5f5; color: #555; font-size: 3.7pt; line-height: 5.5pt; font-weight: bold; text-align: center; padding: 0 4pt; text-transform: uppercase; white-space: nowrap; }
+.back-signature-label { color: #555; font-size: 4.3pt; line-height: 6pt; margin-top: 1pt; }
+.back-notice { top: 148pt; left: 0; width: 242.65pt; height: 5pt; background: #f5f5f5; color: #555; font-size: 4pt; line-height: 5pt; font-weight: bold; text-align: center; text-transform: uppercase; }

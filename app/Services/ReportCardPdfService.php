@@ -42,51 +42,82 @@ class ReportCardPdfService
         return Pdf::loadView('reports.report-card', [
             'student' => $student,
             'school' => $student->school,
+            'schoolLogoDataUri' => $this->schoolLogoDataUri($student->school),
             'term' => $term,
             'result' => $result,
             'attendance' => $attendance,
             'isApproved' => $isApproved,
-            'logo_data_uri' => $this->logoDataUri($student->school?->logo_path),
         ])->setPaper('a4', 'portrait');
     }
+
     /**
-     * Dompdf should not have to make an HTTP request back to the API just
-     * to render the school's own logo. Read the public-disk bytes locally
-     * and embed them in the PDF, matching the ID-card renderer.
+     * DomPDF can embed JPEG directly, but PNG/WebP rendering requires GD.
+     * Keep report-card generation independent of a developer's local GD
+     * setup when the logo itself is the only image: use the original JPEG
+     * when possible, otherwise convert to JPEG when GD is available, and
+     * omit the logo rather than making an otherwise valid report fail.
+     * Production still verifies GD at image/PDF level via the Docker build.
      */
-    protected function logoDataUri(?string $path): ?string
+    protected function schoolLogoDataUri($school): ?string
     {
+        $path = $school->logo_path ?? null;
         if (! $path) {
             return null;
         }
 
-        try {
-            $disk = Storage::disk('public');
-            if (! $disk->exists($path)) {
-                return null;
-            }
+        $disk = Storage::disk('public');
+        if (! $disk->exists($path)) {
+            return null;
+        }
 
+        try {
             $bytes = $disk->get($path);
             if ($bytes === '' || $bytes === null) {
                 return null;
             }
 
-            $mime = 'image/png';
+            $mime = null;
             if (function_exists('finfo_open')) {
                 $finfo = finfo_open(FILEINFO_MIME_TYPE);
-                $detected = $finfo ? finfo_buffer($finfo, $bytes) : false;
+                $mime = $finfo ? finfo_buffer($finfo, $bytes) : false;
                 if ($finfo) {
                     finfo_close($finfo);
                 }
-                if (is_string($detected) && str_starts_with($detected, 'image/')) {
-                    $mime = $detected;
-                }
             }
 
-            return 'data:'.$mime.';base64,'.base64_encode($bytes);
+            if ($mime === 'image/jpeg' || $mime === 'image/jpg') {
+                return 'data:image/jpeg;base64,'.base64_encode($bytes);
+            }
+
+            if (! function_exists('imagecreatefromstring') || ! function_exists('imagejpeg')) {
+                return null;
+            }
+
+            $source = @imagecreatefromstring($bytes);
+            if ($source === false) {
+                return null;
+            }
+
+            $width = imagesx($source);
+            $height = imagesy($source);
+            $max = 900;
+            $scale = min(1, $max / max($width, $height));
+            $targetWidth = max(1, (int) round($width * $scale));
+            $targetHeight = max(1, (int) round($height * $scale));
+            $canvas = imagecreatetruecolor($targetWidth, $targetHeight);
+            $white = imagecolorallocate($canvas, 255, 255, 255);
+            imagefill($canvas, 0, 0, $white);
+            imagecopyresampled($canvas, $source, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
+
+            ob_start();
+            imagejpeg($canvas, null, 88);
+            $jpeg = ob_get_clean();
+            imagedestroy($source);
+            imagedestroy($canvas);
+
+            return $jpeg ? 'data:image/jpeg;base64,'.base64_encode($jpeg) : null;
         } catch (\Throwable) {
             return null;
         }
     }
-
 }

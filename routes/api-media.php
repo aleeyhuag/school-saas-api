@@ -14,10 +14,12 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('media/logos/{path}', [MediaController::class, 'logo'])
-    ->where('path', '.*');
+    ->where('path', '.*')
+    ->name('media.logo');
 
 Route::get('media/signatures/{path}', [MediaController::class, 'principalSignature'])
-    ->where('path', '.*');
+    ->where('path', '.*')
+    ->name('media.signature');
 
 Route::get('media/payment-proofs/{payment}', [MediaController::class, 'paymentProof'])
     ->name('media.payment-proof');

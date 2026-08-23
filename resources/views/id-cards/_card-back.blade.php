@@ -14,10 +14,10 @@
     </div>
 
     <div class="abs back-emergency-title">IN CASE OF EMERGENCY, CONTACT</div>
-    <div class="abs back-emergency-label" style="top: 94pt;">Name</div>
-    <div class="abs back-emergency-value" style="top: 94pt;">{{ $card['student']->guardian_name ?: '—' }}</div>
-    <div class="abs back-emergency-label" style="top: 102pt;">Phone</div>
-    <div class="abs back-emergency-value" style="top: 102pt;">{{ $card['student']->guardian_phone ?: '—' }}</div>
+    <div class="abs back-emergency-label" style="top: 92pt;">Name</div>
+    <div class="abs back-emergency-value" style="top: 92pt;">{{ $card['student']->guardian_name ?: '—' }}</div>
+    <div class="abs back-emergency-label" style="top: 100pt;">Phone</div>
+    <div class="abs back-emergency-value" style="top: 100pt;">{{ $card['student']->guardian_phone ?: '—' }}</div>
 
     <img src="{{ $card['qr_data_uri'] }}" class="abs back-qr" alt="">
     <div class="abs back-qr-label">SCAN TO VERIFY</div>

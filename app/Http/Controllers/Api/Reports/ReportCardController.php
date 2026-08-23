@@ -10,6 +10,7 @@ use App\Models\TermResultApproval;
 use App\Services\ReportCardPdfService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use ZipArchive;
 
@@ -63,7 +64,33 @@ class ReportCardController extends Controller
 
         $filename = str($student->full_name)->slug().'-report-card.pdf';
 
-        return $this->pdfService->build($studentId, $termId)->download($filename);
+        try {
+            return $this->pdfService->build($studentId, $termId)->download($filename);
+        } catch (\Throwable $e) {
+            Log::error('Report card PDF generation failed', [
+                'student_id' => $studentId,
+                'term_id' => $termId,
+                'exception' => $e,
+            ]);
+
+            // Keep local development's useful exception visible, while
+            // replacing the old opaque production 500 with an actionable
+            // message that points directly at the PDF/image runtime.
+            if (! app()->isProduction()) {
+                throw $e;
+            }
+
+            $gdReady = function_exists('imagecreatetruecolor')
+                && function_exists('imagecreatefrompng')
+                && function_exists('imagejpeg');
+
+            return response()->json([
+                'message' => $gdReady
+                    ? 'The report card PDF could not be generated on the server. The error has been logged; please try again or contact support if it continues.'
+                    : 'Report card PDF generation is unavailable because the API server\'s GD image extension is not available. Please redeploy the API with the current Dockerfile, then try again.',
+                'code' => $gdReady ? 'report_card_pdf_failed' : 'pdf_gd_unavailable',
+            ], $gdReady ? 500 : 503);
+        }
     }
 
     /**

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Http\Request;
 
 class School extends Model
 {
@@ -36,11 +37,7 @@ class School extends Model
 
     public function getLogoUrlAttribute(): ?string
     {
-        // Served through MediaController rather than a raw
-        // Storage::disk('public')->url() — see its docblock for why
-        // (relying on the public/storage symlink existing has been
-        // unreliable on this project's Windows/XAMPP local setup).
-        return $this->logo_path ? url('/api/media/logos/'.$this->logo_path) : null;
+        return $this->mediaUrl('media.logo', $this->logo_path);
     }
 
     /**
@@ -51,7 +48,29 @@ class School extends Model
      */
     public function getPrincipalSignatureUrlAttribute(): ?string
     {
-        return $this->principal_signature_path ? url('/api/media/signatures/'.$this->principal_signature_path) : null;
+        return $this->mediaUrl('media.signature', $this->principal_signature_path);
+    }
+
+    /**
+     * Build media URLs from the current request host/scheme when available.
+     * This matters on Render because APP_URL can lag behind a custom-domain
+     * change. A stale APP_URL produces perfectly valid-looking URLs that
+     * point at the wrong host (or HTTP), which shows up in the frontend as
+     * a broken school logo. CLI/queue rendering falls back to Laravel's
+     * configured APP_URL.
+     */
+    protected function mediaUrl(string $routeName, ?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        $request = request();
+        if ($request instanceof Request) {
+            return $request->getSchemeAndHttpHost().route($routeName, ['path' => $path], false);
+        }
+
+        return route($routeName, ['path' => $path]);
     }
 
     public function schoolGroup(): BelongsTo
