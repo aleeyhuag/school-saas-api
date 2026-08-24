@@ -16,13 +16,36 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * Runs AFTER 'auth:sanctum' in the route's middleware array (so
  * Auth::user() is already resolved) — add it right alongside
- * 'auth:sanctum' in every route group except the public auth routes
- * and the super_admin-only platform routes (super_admin has no
+ * 'auth:sanctum' in every route group except the public auth routes,
+ * the billing routes (see routes/api-billing.php's own docblock for
+ * why), and the super_admin-only platform routes (super_admin has no
  * school_id, so this would be a no-op for them anyway, but they're
  * skipped for clarity).
  */
 class EnsureSchoolIsActive
 {
+    /**
+     * Stage 55 hotfix (patch 2) — the two routes a billing-locked
+     * Proprietor/Principal needs even before they reach the Billing
+     * page itself: /auth/me (the frontend calls this unconditionally
+     * right after login to learn who's signed in and what to route
+     * them to — including Billing) and /auth/logout. The routes/
+     * api-billing.php group deliberately skips this middleware
+     * entirely for the same reason; these two can't be moved out of
+     * this group the same way (they're needed by every user, not just
+     * billing-locked ones), so they're carved out here instead,
+     * narrowly, only for the exact same billing-locked condition
+     * LoginController already uses.
+     *
+     * First attempt at this hotfix missed these two routes entirely —
+     * fixing the login endpoint and the billing routes wasn't enough,
+     * since the very next request the frontend makes after a
+     * successful login is /auth/me, and that was still unconditionally
+     * blocking a billing-locked Proprietor/Principal right back out
+     * again.
+     */
+    protected const BILLING_CARVEOUT_ROUTES = ['auth.me', 'auth.logout'];
+
     public function __construct(protected SubscriptionService $subscriptionService) {}
 
     public function handle(Request $request, Closure $next): Response
@@ -51,16 +74,24 @@ class EnsureSchoolIsActive
             }
 
             if ($school && $school->is_active === false) {
-                $messages = [
-                    'trial_expired' => 'Your free trial has ended. Subscribe to keep access — nothing about your data has changed.',
-                    'subscription_expired' => 'Your subscription has lapsed. Renew to regain access — nothing about your data has changed.',
-                ];
+                $billingReasons = ['trial_expired', 'subscription_expired'];
+                $canManageBilling = $user->hasRole('proprietor') || $user->hasRole('principal');
+                $isBillingLock = in_array($school->deactivation_reason, $billingReasons, true);
 
-                return response()->json([
-                    'message' => $messages[$school->deactivation_reason] ?? 'Your school has been disabled. Please contact your proprietor or principal.',
-                    'code' => 'school_disabled',
-                    'reason' => $school->deactivation_reason,
-                ], 403);
+                $isCarvedOutRoute = $request->routeIs(...self::BILLING_CARVEOUT_ROUTES);
+
+                if (! ($canManageBilling && $isBillingLock && $isCarvedOutRoute)) {
+                    $messages = [
+                        'trial_expired' => 'Your free trial has ended. Subscribe to keep access — nothing about your data has changed.',
+                        'subscription_expired' => 'Your subscription has lapsed. Renew to regain access — nothing about your data has changed.',
+                    ];
+
+                    return response()->json([
+                        'message' => $messages[$school->deactivation_reason] ?? 'Your school has been disabled. Please contact your proprietor or principal.',
+                        'code' => 'school_disabled',
+                        'reason' => $school->deactivation_reason,
+                    ], 403);
+                }
             }
         }
 

@@ -32,8 +32,15 @@ Route::prefix('auth')->group(function () {
 
     // Protected routes — require a valid Sanctum token AND an active school
     Route::middleware(['auth:sanctum', 'school.active'])->group(function () {
-        Route::get('/me', CurrentUserController::class);
-        Route::post('/logout', LogoutController::class);
+        // Stage 55 hotfix (patch 2) — named so EnsureSchoolIsActive can
+        // carve these two out specifically for a billing-locked
+        // Proprietor/Principal. Both are load-bearing for that carve-out
+        // to work at all: the frontend calls /me unconditionally right
+        // after every login to populate who's signed in before it can
+        // route them anywhere (including to Billing), and they still
+        // need a working /logout regardless of lock state.
+        Route::get('/me', CurrentUserController::class)->name('auth.me');
+        Route::post('/logout', LogoutController::class)->name('auth.logout');
         Route::put('/change-password', ChangePasswordController::class);
         Route::put('/profile', UpdateProfileController::class);
     });
