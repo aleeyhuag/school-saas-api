@@ -22,9 +22,5 @@ Route::middleware(['auth:sanctum', 'role:super_admin'])->prefix('platform')->gro
     Route::get('backup/download', [PlatformBackupController::class, 'download']);
     Route::get('schools/{school}/backup/download', [PlatformBackupController::class, 'downloadSchool']);
     Route::get('schools/{school}/export/{module}', [PlatformBackupController::class, 'downloadSchoolModule']);
-
-    // Stage 55 hotfix — see StorageHealthController's docblock. Reports
-    // hard evidence on the "images disappear after a few hours" report
-    // instead of guessing further.
     Route::get('diagnostics/storage-health', StorageHealthController::class);
 });

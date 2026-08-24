@@ -24,6 +24,12 @@ class CurrentUserController extends Controller
                 ->get()
             : collect();
 
+        $billingReasons = ['trial_expired', 'subscription_expired'];
+        $billingLocked = $user->school_id
+            && ($user->hasRole('proprietor') || $user->hasRole('principal'))
+            && $user->school?->is_active === false
+            && in_array($user->school?->deactivation_reason, $billingReasons, true);
+
         return response()->json([
             'user' => $user->only([
                 'id',
@@ -36,6 +42,7 @@ class CurrentUserController extends Controller
             'school' => $user->school,
             'roles' => $user->getRoleNames(),
             'accessible_schools' => $accessibleSchools,
+            'billing_locked' => $billingLocked,
         ]);
     }
 }

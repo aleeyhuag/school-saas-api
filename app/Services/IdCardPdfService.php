@@ -97,6 +97,8 @@ class IdCardPdfService
             'template' => $template,
             'student' => $student,
             'school' => $student->school,
+            'school_name_display' => Str::limit(trim((string) $student->school->name), 42, '…'),
+            'student_name_display' => Str::limit(trim((string) $student->full_name), 30, '…'),
             'class_name' => $student->schoolClass?->full_name ?? '—',
             'session_name' => $currentSession?->name,
             'qr_data_uri' => $qrDataUri,

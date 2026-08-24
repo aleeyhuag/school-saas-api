@@ -35,7 +35,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware(['auth:sanctum', 'role:proprietor'])->group(function () {
+Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor'])->group(function () {
     Route::get('branches', [BranchController::class, 'index']);
     Route::post('branches/switch', [BranchController::class, 'switchBranch']);
 });

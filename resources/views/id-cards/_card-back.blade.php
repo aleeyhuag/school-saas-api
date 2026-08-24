@@ -1,6 +1,6 @@
-{{-- Fully flattened -- see _card-front.blade.php's docblock for why. --}}
+{{-- Flat direct-child layout keeps Dompdf's coordinate system deterministic. --}}
 <div class="id-card-inner">
-    <div class="abs back-header">{{ strtoupper($card['school']->name) }}</div>
+    <div class="abs back-header">{{ strtoupper($card['school_name_display']) }}</div>
 
     <div class="abs back-pledge-title">STUDENT CODE OF CONDUCT</div>
     <div class="abs back-pledge">
@@ -14,27 +14,22 @@
     </div>
 
     <div class="abs back-emergency-title">IN CASE OF EMERGENCY, CONTACT</div>
-    <div class="abs back-emergency-label" style="top: 92pt;">Name</div>
-    <div class="abs back-emergency-value" style="top: 92pt;">{{ $card['student']->guardian_name ?: '—' }}</div>
-    <div class="abs back-emergency-label" style="top: 100pt;">Phone</div>
-    <div class="abs back-emergency-value" style="top: 100pt;">{{ $card['student']->guardian_phone ?: '—' }}</div>
+    <div class="abs back-emergency-label" style="top: 94pt;">Name</div>
+    <div class="abs back-emergency-value" style="top: 94pt;">{{ $card['student']->guardian_name ?: '—' }}</div>
+    <div class="abs back-emergency-label" style="top: 102pt;">Phone</div>
+    <div class="abs back-emergency-value" style="top: 102pt;">{{ $card['student']->guardian_phone ?: '—' }}</div>
 
     <img src="{{ $card['qr_data_uri'] }}" class="abs back-qr" alt="">
     <div class="abs back-qr-label">SCAN TO VERIFY</div>
 
     <div class="abs back-footer"></div>
-    <div class="abs back-sign-cell-l">
-        <div class="back-signature-line"></div>
-        <div class="back-signature-label">HOLDER'S SIGNATURE</div>
-    </div>
+    <div class="abs back-holder-line"></div>
+    <div class="abs back-holder-label">HOLDER'S SIGNATURE</div>
     <div class="abs back-sign-divider"></div>
-    <div class="abs back-sign-cell-r">
-        @if($card['signature_data_uri'])
-            <img src="{{ $card['signature_data_uri'] }}" class="back-signature-img" alt="">
-        @else
-            <div class="back-signature-line"></div>
-        @endif
-        <div class="back-signature-label">PRINCIPAL'S SIGNATURE</div>
-    </div>
+    @if($card['signature_data_uri'])
+        <img src="{{ $card['signature_data_uri'] }}" class="abs back-principal-signature-img" alt="">
+    @endif
+    <div class="abs back-principal-line"></div>
+    <div class="abs back-principal-label">PRINCIPAL'S SIGNATURE</div>
     <div class="abs back-notice">This ID card must be presented on demand. Not transferable.</div>
 </div>

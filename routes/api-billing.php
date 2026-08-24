@@ -10,14 +10,13 @@ use Illuminate\Support\Facades\Route;
 | API Routes — Billing
 |--------------------------------------------------------------------------
 |
-| Proprietor/Principal-facing billing routes deliberately do NOT
-| include the 'school.active' middleware other routes use — a school
-| locked out for a billing reason (trial/subscription lapsed) still
-| needs its Proprietor or Principal to reach these to actually pay
-| and fix it. LoginController carves out the matching narrow
-| exception (for both roles, Stage 55 hotfix) to let them log in at
-| all in that state. Every other route in the app stays fully
-| blocked via 'school.active' as normal.
+| Proprietor-facing billing routes deliberately do NOT include the
+| 'school.active' middleware other proprietor routes use — a
+| Proprietor locked out for a billing reason (trial/subscription
+| lapsed) still needs to reach these to actually pay and fix it.
+| LoginController carves out the matching narrow exception to let
+| them log in at all in that state. Every other route in the app
+| stays fully blocked via 'school.active' as normal.
 |
 */
 

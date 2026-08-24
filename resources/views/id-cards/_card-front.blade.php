@@ -21,7 +21,8 @@
             <div class="front-logo-placeholder">{{ strtoupper(substr($card['school']->name, 0, 1)) }}</div>
         @endif
     </div>
-    <div class="abs front-school-name">{{ strtoupper($card['school']->name) }}</div>
+    <div class="abs front-school-name">{{ strtoupper($card['school_name_display']) }}</div>
+    <div class="abs front-subtitle">STUDENT IDENTITY</div>
     <div class="abs front-card-title">STUDENT IDENTITY CARD</div>
 
     <div class="abs front-photo-frame">
@@ -32,7 +33,7 @@
         @endif
     </div>
 
-    <div class="abs front-name">{{ $card['student']->full_name }}</div>
+    <div class="abs front-name">{{ $card['student_name_display'] }}</div>
     <div class="abs front-name-rule"></div>
     <div class="abs front-role">STUDENT</div>
 

@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware(['auth:sanctum'])->group(function () {
+Route::middleware(['auth:sanctum', 'school.active'])->group(function () {
     Route::get('announcements', [AnnouncementController::class, 'index']);
     Route::post('announcements/{announcement}/read', [AnnouncementController::class, 'markRead']);
 });

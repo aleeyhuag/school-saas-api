@@ -49,27 +49,12 @@ class LoginController extends Controller
                 ->select('id', 'is_active', 'deactivation_reason')
                 ->first();
 
-            // Stage 55 hotfix — same live-expiry re-derivation as
-            // EnsureSchoolIsActive (see SubscriptionService::
-            // enforceLiveExpiry()), so a trial/subscription that just
-            // expired is caught on the very next login attempt even if
-            // the daily cron hasn't run yet.
             if ($school) {
                 $school = $subscriptionService->enforceLiveExpiry($school);
             }
 
             $billingReasons = ['trial_expired', 'subscription_expired'];
-            $isProprietor = $user->hasRole('proprietor');
-            // Stage 55 hotfix — this carve-out previously only
-            // recognized 'proprietor', so a Principal on a
-            // trial/subscription-locked school couldn't even log in to
-            // reach the Billing page, contradicting the intended
-            // behavior ("ONLY the proprietor/principal should be able
-            // to log in... restricted to the Billing Page"). Every
-            // other role-gated route group in this app already treats
-            // proprietor and principal as equals (role:proprietor|
-            // principal) — billing was the one place that didn't.
-            $canManageBilling = $isProprietor || $user->hasRole('principal');
+            $canManageBilling = $user->hasRole('proprietor') || $user->hasRole('principal');
             $isBillingLock = $school && in_array($school->deactivation_reason, $billingReasons, true);
             $isBlocked = $school && $school->is_active === false && ! ($canManageBilling && $isBillingLock);
 
