@@ -1,18 +1,4 @@
-{{--
-    Every element here is a DIRECT child of .id-card-inner -- none are
-    nested inside another position:absolute/relative wrapper. This
-    isn't a style preference: dompdf has a long-standing, still-open
-    limitation where a nested position:absolute element does NOT
-    reliably use its immediate positioned ancestor as its reference
-    point (falls back to the page/body instead) -- confirmed across
-    several dompdf GitHub issues going back over a decade. That was
-    the real cause of the overlap bugs, not the individual coordinate
-    tweaks from earlier rounds. Purely visual background bands (the
-    contact strip, the footer band) stay as their own div for the
-    fill/border, but everything with actual text content sits
-    alongside them as an independent, flat sibling.
---}}
-<div class="id-card-inner">
+<div class="id-card-page">
     <div class="abs front-header"></div>
     <div class="abs front-logo-wrap">
         @if($card['logo_data_uri'])
@@ -21,10 +7,9 @@
             <div class="front-logo-placeholder">{{ strtoupper(substr($card['school']->name, 0, 1)) }}</div>
         @endif
     </div>
-    <div class="abs front-school-name">{{ strtoupper($card['school_name_display']) }}</div>
+    <div class="abs front-school-name">{{ strtoupper($card['school']->name) }}</div>
     <div class="abs front-subtitle">STUDENT IDENTITY</div>
     <div class="abs front-card-title">STUDENT IDENTITY CARD</div>
-
     <div class="abs front-photo-frame">
         @if($card['photo_data_uri'])
             <img src="{{ $card['photo_data_uri'] }}" class="front-photo" alt="">
@@ -32,34 +17,26 @@
             <div class="front-photo-placeholder">PHOTO</div>
         @endif
     </div>
-
-    <div class="abs front-name">{{ $card['student_name_display'] }}</div>
+    <div class="abs front-name">{{ $card['student']->full_name }}</div>
     <div class="abs front-name-rule"></div>
     <div class="abs front-role">STUDENT</div>
-
-    <div class="abs front-fact-label" style="top: 68pt;">Adm No.</div>
-    <div class="abs front-fact-value" style="top: 68pt;">{{ $card['student']->admission_number ?: '—' }}</div>
-    <div class="abs front-fact-label" style="top: 76pt;">Class</div>
-    <div class="abs front-fact-value" style="top: 76pt;">{{ $card['class_name'] }}</div>
-    <div class="abs front-fact-label" style="top: 84pt;">D.O.B.</div>
-    <div class="abs front-fact-value" style="top: 84pt;">{{ $card['student']->date_of_birth ? $card['student']->date_of_birth->format('d M Y') : '—' }}</div>
-
+    <div class="abs front-fact-label" style="top:68pt;">Adm No.</div>
+    <div class="abs front-fact-value" style="top:68pt;">{{ $card['student']->admission_number ?: '—' }}</div>
+    <div class="abs front-fact-label" style="top:76pt;">Class</div>
+    <div class="abs front-fact-value" style="top:76pt;">{{ $card['class_name'] }}</div>
+    <div class="abs front-fact-label" style="top:84pt;">D.O.B.</div>
+    <div class="abs front-fact-value" style="top:84pt;">{{ $card['student']->date_of_birth ? $card['student']->date_of_birth->format('d M Y') : '—' }}</div>
     @if($card['session_name'])
-        <div class="abs front-session">{{ $card['session_name'] }}</div>
+        <div class="abs front-session"><span class="pill-text">{{ $card['session_name'] }}</span></div>
     @endif
-
     @if($card['signature_data_uri'])
         <img src="{{ $card['signature_data_uri'] }}" class="abs front-signature-img" alt="">
     @else
         <div class="abs front-signature-line"></div>
     @endif
     <div class="abs front-signature-label">PRINCIPAL</div>
-
     <div class="abs front-contact"></div>
-    <div class="abs front-contact-address">{{ $card['address_short'] ?: 'School Office' }}</div>
-    <div class="abs front-contact-phone">{{ $card['contact_short'] ?: 'Contact School' }}</div>
-
-    <div class="abs front-footer">
-        Issued {{ $card['issued_on'] }} &nbsp;&bull;&nbsp; Property of {{ strtoupper($card['school']->name) }}
-    </div>
+    <div class="abs front-contact-address"><span class="pill-text">{{ $card['address_short'] ?: 'School Office' }}</span></div>
+    <div class="abs front-contact-phone"><span class="pill-text">{{ $card['contact_short'] ?: 'Contact School' }}</span></div>
+    <div class="abs front-footer"><span class="center-text">Issued {{ $card['issued_on'] }} &nbsp;&bull;&nbsp; Property of {{ strtoupper($card['school']->name) }}</span></div>
 </div>
