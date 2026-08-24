@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\SubscriptionService;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -22,6 +23,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class EnsureSchoolIsActive
 {
+    public function __construct(protected SubscriptionService $subscriptionService) {}
+
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
@@ -31,8 +34,21 @@ class EnsureSchoolIsActive
             // whole point of this middleware is to catch a status
             // change that happened after the token was issued.
             $school = \App\Models\School::where('id', $user->school_id)
-                ->select('is_active', 'deactivation_reason')
+                ->select('id', 'is_active', 'deactivation_reason')
                 ->first();
+
+            // Stage 55 hotfix — don't just trust the cached is_active
+            // flag. It's normally kept correct by a daily cron
+            // (billing:process-lifecycle), but that's a single point
+            // of failure: if it hasn't run yet for any reason, a
+            // fully-expired trial/subscription would otherwise keep
+            // working indefinitely. Re-derive live from trial_ends_at/
+            // grace_ends_at on every request and self-heal is_active
+            // immediately if it's stale. See SubscriptionService::
+            // enforceLiveExpiry() for the full reasoning.
+            if ($school) {
+                $school = $this->subscriptionService->enforceLiveExpiry($school);
+            }
 
             if ($school && $school->is_active === false) {
                 $messages = [

@@ -243,6 +243,81 @@ class SubscriptionService
     }
 
     /**
+     * Stage 55 hotfix — lazy, per-request expiry check for ONE school.
+     *
+     * Root cause of the trial-bypass bug: `is_active` is a cached flag
+     * that only gets flipped by the daily `billing:process-lifecycle`
+     * cron (see expireTrials()/processRenewals() below). If that cron
+     * doesn't run for any reason -- not yet deployed, misconfigured on
+     * the host, timezone confusion, a silent failure -- `is_active`
+     * simply never updates and every check that trusts it (the
+     * EnsureSchoolIsActive middleware, LoginController) lets fully
+     * expired trials/subscriptions through indefinitely. That's a
+     * single point of failure for a security-relevant control.
+     *
+     * This method removes that single point of failure: it re-derives
+     * expiry LIVE from trial_ends_at/grace_ends_at against now() on
+     * every call, and if it finds the subscription should already be
+     * expired but hasn't been marked yet, it fixes it immediately and
+     * persists the same is_active/deactivation_reason state the daily
+     * job would have written. The daily cron becomes a (still useful)
+     * backstop rather than the only mechanism -- it also still handles
+     * the "just lapsed -> enters grace period" transition and trial
+     * reminder emails, which this method deliberately does NOT
+     * duplicate since those aren't security-relevant and don't need to
+     * be instant.
+     *
+     * Cheap by design: one existing relation, no query if the
+     * subscription is already in a terminal state that matches reality.
+     */
+    public function enforceLiveExpiry(School $school): School
+    {
+        $subscription = $school->subscription;
+
+        if (! $subscription) {
+            return $school;
+        }
+
+        if (
+            $subscription->status === 'trialing'
+            && $subscription->trial_ends_at
+            && $subscription->trial_ends_at->isPast()
+        ) {
+            $subscription->update(['status' => 'expired']);
+            $school->update([
+                'is_active' => false,
+                'deactivation_reason' => 'trial_expired',
+            ]);
+
+            return $school->fresh();
+        }
+
+        if (
+            $subscription->status === 'past_due'
+            && $subscription->grace_ends_at
+            && $subscription->grace_ends_at->isPast()
+        ) {
+            $subscription->update(['status' => 'expired']);
+            $school->update([
+                'is_active' => false,
+                'deactivation_reason' => 'subscription_expired',
+            ]);
+
+            return $school->fresh();
+        }
+
+        // A paid period that just lapsed (active -> should be past_due)
+        // is intentionally NOT expired here -- that transition starts
+        // the 3-day grace window rather than locking the school out
+        // immediately, and the daily cron already handles it within
+        // one day. Live-enforcing an instant lockout the moment a
+        // period ends would remove the grace period entirely, which is
+        // a real product decision, not a bug.
+
+        return $school;
+    }
+
+    /**
      * Scheduled daily — trials that have run out get locked
      * immediately (confirmed: no grace period on the initial trial,
      * unlike a missed renewal below, since there's no payment
