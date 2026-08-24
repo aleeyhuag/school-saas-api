@@ -22,3 +22,8 @@ Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal|t
 // IdCardController's docblock for why this isn't behind auth:sanctum.
 Route::get('id-cards/{studentId}/download', [IdCardController::class, 'show'])
     ->name('id-card.download');
+
+// TEMPORARY Stage 55 browser preview. Open this URL in a normal browser and
+// use DevTools/Inspect Element to tune the exact visual coordinates.
+Route::get('id-cards/{studentId}/preview', [IdCardController::class, 'preview'])
+    ->name('id-card.preview');

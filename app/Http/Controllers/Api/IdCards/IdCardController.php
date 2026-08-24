@@ -36,7 +36,16 @@ class IdCardController extends Controller
             ['studentId' => $studentId]
         );
 
-        return response()->json(['download_url' => $url]);
+        $previewUrl = URL::temporarySignedRoute(
+            'id-card.preview',
+            now()->addHours(2),
+            ['studentId' => $studentId]
+        );
+
+        return response()->json([
+            'download_url' => $url,
+            'preview_url' => $previewUrl,
+        ]);
     }
 
     /**
@@ -46,6 +55,19 @@ class IdCardController extends Controller
      * MediaController's payment-proof/student-photo routes. Not behind
      * auth:sanctum, so a plain browser navigation works.
      */
+    /**
+     * Temporary browser-editable preview. The same signed-URL pattern as the PDF
+     * keeps this from becoming an unauthenticated student lookup endpoint.
+     */
+    public function preview(int $studentId, IdCardPdfService $idCardService)
+    {
+        if (! request()->hasValidSignature()) {
+            abort(403, 'This preview link has expired — go back and request a new one.');
+        }
+
+        return $idCardService->buildPreview($studentId);
+    }
+
     public function show(int $studentId, IdCardPdfService $idCardService)
     {
         if (! request()->hasValidSignature()) {

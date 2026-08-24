@@ -32,6 +32,20 @@ class IdCardPdfService
     protected const CARD_HEIGHT_PT = 153.07; // 54mm / CR80
     protected const CARDS_PER_SHEET = 8; // 2 x 4 on A4
 
+    /**
+     * Temporary browser preview of the exact same card data/templates used by the PDF.
+     * This intentionally does not involve Dompdf, so the card can be edited live in
+     * browser DevTools without PDF pagination interfering with the visual work.
+     */
+    public function buildPreview(int $studentId, string $template = 'default')
+    {
+        $student = Student::with('schoolClass', 'school')->findOrFail($studentId);
+
+        return view('id-cards.preview', [
+            'card' => $this->cardData($student, $template),
+        ]);
+    }
+
     public function buildSingle(int $studentId, string $template = 'default')
     {
         $student = Student::with('schoolClass', 'school')->findOrFail($studentId);
@@ -97,8 +111,6 @@ class IdCardPdfService
             'template' => $template,
             'student' => $student,
             'school' => $student->school,
-            'school_name_display' => Str::limit(trim((string) $student->school->name), 42, '…'),
-            'student_name_display' => Str::limit(trim((string) $student->full_name), 30, '…'),
             'class_name' => $student->schoolClass?->full_name ?? '—',
             'session_name' => $currentSession?->name,
             'qr_data_uri' => $qrDataUri,
