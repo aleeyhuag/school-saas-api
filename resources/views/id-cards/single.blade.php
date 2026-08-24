@@ -9,7 +9,7 @@
     </style>
 </head>
 <body>
-    @include('id-cards._card-front', ['card' => $card])
-    @include('id-cards._card-back', ['card' => $card])
+    <div class="id-card-page">@include('id-cards._card-front', ['card' => $card])</div>
+    <div class="id-card-page">@include('id-cards._card-back', ['card' => $card])</div>
 </body>
 </html>
