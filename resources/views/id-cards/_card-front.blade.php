@@ -1,17 +1,4 @@
-{{--
-    Every element here is a DIRECT child of .id-card-inner -- none are
-    nested inside another position:absolute/relative wrapper. This
-    isn't a style preference: dompdf has a long-standing, still-open
-    limitation where a nested position:absolute element does NOT
-    reliably use its immediate positioned ancestor as its reference
-    point (falls back to the page/body instead) -- confirmed across
-    several dompdf GitHub issues going back over a decade. That was
-    the real cause of the overlap bugs, not the individual coordinate
-    tweaks from earlier rounds. Purely visual background bands (the
-    contact strip, the footer band) stay as their own div for the
-    fill/border, but everything with actual text content sits
-    alongside them as an independent, flat sibling.
---}}
+{{-- Front of the CR80 student ID card. Keep this markup flat for Dompdf. --}}
 <div class="id-card-inner">
     <div class="abs front-header"></div>
     <div class="abs front-logo-wrap">
@@ -21,9 +8,9 @@
             <div class="front-logo-placeholder">{{ strtoupper(substr($card['school']->name, 0, 1)) }}</div>
         @endif
     </div>
-    <div class="abs front-school-name">{{ strtoupper($card['school_name_display']) }}</div>
-    <div class="abs front-subtitle">STUDENT IDENTITY</div>
-    <div class="abs front-card-title">STUDENT IDENTITY CARD</div>
+    <div class="abs front-school-name">{{ strtoupper($card['school']->name) }}</div>
+    <div class="abs front-header-address">{{ $card['address_short'] ?: 'School Office' }}</div>
+    <div class="abs front-header-phone">{{ $card['contact_short'] ?: 'Contact School' }}</div>
 
     <div class="abs front-photo-frame">
         @if($card['photo_data_uri'])
@@ -33,7 +20,7 @@
         @endif
     </div>
 
-    <div class="abs front-name">{{ $card['student_name_display'] }}</div>
+    <div class="abs front-name">{{ $card['student']->full_name }}</div>
     <div class="abs front-name-rule"></div>
     <div class="abs front-role">STUDENT</div>
 
@@ -54,10 +41,6 @@
         <div class="abs front-signature-line"></div>
     @endif
     <div class="abs front-signature-label">PRINCIPAL</div>
-
-    <div class="abs front-contact"></div>
-    <div class="abs front-contact-address">{{ $card['address_short'] ?: 'School Office' }}</div>
-    <div class="abs front-contact-phone">{{ $card['contact_short'] ?: 'Contact School' }}</div>
 
     <div class="abs front-footer">
         Issued {{ $card['issued_on'] }} &nbsp;&bull;&nbsp; Property of {{ strtoupper($card['school']->name) }}

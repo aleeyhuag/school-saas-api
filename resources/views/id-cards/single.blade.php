@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <title>{{ $card['student']->full_name }} — ID Card</title>
     <style>
-        @page { margin: 0; }
+        @page { margin: 0; size: 85.6mm 54mm; }
         @include('id-cards._card-styles')
     </style>
 </head>
