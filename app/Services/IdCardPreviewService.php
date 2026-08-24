@@ -20,10 +20,37 @@ class IdCardPreviewService
 {
     public function forStudent(Student $student): array
     {
-        $school = $student->school;
         $currentSession = AcademicSession::where('school_id', $student->school_id)
             ->where('is_current', true)
             ->first();
+
+        return $this->buildCard($student, $currentSession);
+    }
+
+    /**
+     * Bulk variant for printing a whole class/selection in one browser
+     * print job — see IdCardController::bulk(). Looks up each distinct
+     * school's current session once and reuses it across that school's
+     * students, instead of running the same "is_current" query once per
+     * student. In practice this is always exactly one school (routes
+     * already scope student_ids to Auth::user()->school_id), but it's
+     * written to stay correct even if that ever changes.
+     */
+    public function forStudents(\Illuminate\Support\Collection $students): array
+    {
+        $sessionsBySchool = AcademicSession::whereIn('school_id', $students->pluck('school_id')->unique())
+            ->where('is_current', true)
+            ->get()
+            ->keyBy('school_id');
+
+        return $students->map(
+            fn (Student $student) => $this->buildCard($student, $sessionsBySchool->get($student->school_id))
+        )->all();
+    }
+
+    protected function buildCard(Student $student, ?AcademicSession $currentSession): array
+    {
+        $school = $student->school;
 
         $verifyUrl = route('id-card.verify', ['token' => $student->qr_token]);
         $qrDataUri = $this->qrDataUri($verifyUrl);
