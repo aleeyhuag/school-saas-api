@@ -135,48 +135,6 @@ class ExportController extends Controller
     }
 
     /**
-     * ID cards — either every active student in one class, or (no
-     * school_class_id given) every active student in the whole
-     * school. `format` picks between a ZIP of individual CR80 PDFs
-     * (one per student, ready for a card printer) and a single
-     * multi-card-per-page PDF for printing on regular paper and
-     * cutting out. Proprietor/principal only — this is a school-
-     * management action, not something a class teacher initiates
-     * (unlike report cards, which a class teacher can export for
-     * their own class).
-     */
-    public function requestIdCards()
-    {
-        $validated = request()->validate([
-            'format' => ['required', 'in:zip,print_sheet'],
-            'school_class_id' => ['nullable', 'integer', 'exists:school_classes,id'],
-        ]);
-
-        $user = Auth::user();
-        $school = $user->school;
-        abort_unless($school, 403, 'No active school context.');
-
-        if (! empty($validated['school_class_id'])) {
-            $schoolClass = SchoolClass::findOrFail($validated['school_class_id']);
-            if ($schoolClass->school_id !== $school->id) {
-                abort(403, 'That class does not belong to your school.');
-            }
-        }
-
-        $export = Export::create([
-            'school_id' => $school->id,
-            'user_id' => $user->id,
-            'type' => $validated['format'] === 'zip' ? 'id_cards_bulk' : 'id_cards_print_sheet',
-            'params' => array_filter(['school_class_id' => $validated['school_class_id'] ?? null]),
-            'status' => 'queued',
-        ]);
-
-        $export = $this->processExport($export);
-
-        return response()->json($export, 202);
-    }
-
-    /**
      * Poll an export's status. The frontend calls this every few
      * seconds after requesting an export until status is
      * completed/failed. Scoped to the requesting user OR — for

@@ -31,9 +31,6 @@ Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor'])->group(f
     Route::post('exports/school-backup', [ExportController::class, 'requestSchoolBackup']);
 });
 
-Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal'])->group(function () {
-    Route::post('exports/id-cards', [ExportController::class, 'requestIdCards']);
-});
 
 Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal|teacher'])->group(function () {
     Route::post('classes/{schoolClassId}/report-cards/export-async', [ExportController::class, 'requestReportCardBulk']);

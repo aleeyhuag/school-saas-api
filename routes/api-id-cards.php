@@ -5,25 +5,14 @@ use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| API Routes — ID Cards (Stage 53)
+| API Routes — Browser ID Cards
 |--------------------------------------------------------------------------
 |
-| Single on-demand download lives here. Bulk generation (ZIP / print
-| sheet) goes through the generic queued-export flow in
-| api-exports.php (ExportController::requestIdCards) instead.
+| The ID card is rendered and printed by the browser. No PDF download or
+| queued ID-card export exists anymore.
 |
 */
 
-Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal|teacher'])->group(function () {
-    Route::get('id-cards/{studentId}/download-url', [IdCardController::class, 'requestDownloadUrl']);
+Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal'])->group(function () {
+    Route::get('id-cards/{student}/preview', [IdCardController::class, 'preview']);
 });
-
-// Reached only via the signed URL the route above returns — see
-// IdCardController's docblock for why this isn't behind auth:sanctum.
-Route::get('id-cards/{studentId}/download', [IdCardController::class, 'show'])
-    ->name('id-card.download');
-
-// TEMPORARY Stage 55 browser preview. Open this URL in a normal browser and
-// use DevTools/Inspect Element to tune the exact visual coordinates.
-Route::get('id-cards/{studentId}/preview', [IdCardController::class, 'preview'])
-    ->name('id-card.preview');

@@ -41,7 +41,7 @@ class SchoolProfileController extends Controller
 
     /**
      * A signature image printed on every ID card generated for this
-     * school (see IdCardPdfService) — proprietor or principal, either
+     * school — proprietor or principal, either
      * can upload/replace it; whichever of them actually holds the pen
      * varies by school and isn't something worth restricting here.
      */
