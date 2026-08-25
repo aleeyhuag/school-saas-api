@@ -38,19 +38,74 @@ return [
             'report' => false,
         ],
 
+        /*
+        |----------------------------------------------------------------
+        | Image persistence hotfix -- 'public' and 'private' now point
+        | at Supabase Storage (S3-compatible) instead of Render's local
+        | disk. Deliberately kept the SAME disk names the whole app
+        | already uses ('public', 'private') rather than introducing new
+        | ones -- MediaController, School::mediaUrl(), Student::photo_
+        | url(), the logo/signature/photo upload controllers, and
+        | ReportCardPdfService all call Storage::disk('public'|'private')
+        | by name and don't need to change at all. Only where those
+        | bytes physically live changes.
+        |
+        | Every path stored in the database (logo_path, signature_path,
+        | photo_path -- e.g. "school-logos/xyz.png") is disk-relative,
+        | not an absolute local path, so no database migration is
+        | needed either -- the exact same path strings resolve correctly
+        | against the new disk.
+        |----------------------------------------------------------------
+        */
+
         'public' => [
-            'driver' => 'local',
-            'root' => storage_path('app/public'),
-            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
+            'driver' => 's3',
+            'key' => env('SUPABASE_S3_ACCESS_KEY_ID'),
+            'secret' => env('SUPABASE_S3_SECRET_ACCESS_KEY'),
+            'region' => env('SUPABASE_S3_REGION', 'eu-west-1'),
+            'bucket' => env('SUPABASE_S3_PUBLIC_BUCKET', 'skulag-images-sign'),
+            'endpoint' => env('SUPABASE_S3_ENDPOINT'),
+            // Supabase's S3-compatible endpoint requires path-style
+            // (bucket-in-path) rather than AWS's default virtual-hosted
+            // (bucket-as-subdomain) style. This is documented by
+            // Supabase, not something Laravel/AWS decides -- leaving
+            // this false against Supabase silently produces wrong URLs.
+            'use_path_style_endpoint' => true,
             'visibility' => 'public',
             'throw' => false,
             'report' => false,
         ],
 
         'private' => [
+            'driver' => 's3',
+            'key' => env('SUPABASE_S3_ACCESS_KEY_ID'),
+            'secret' => env('SUPABASE_S3_SECRET_ACCESS_KEY'),
+            'region' => env('SUPABASE_S3_REGION', 'eu-west-1'),
+            'bucket' => env('SUPABASE_S3_PRIVATE_BUCKET', 'skulag-photos'),
+            'endpoint' => env('SUPABASE_S3_ENDPOINT'),
+            'use_path_style_endpoint' => true,
+            'visibility' => 'private',
+            'throw' => false,
+            'report' => false,
+        ],
+
+        // Old Render-local paths, kept reachable ONLY as the source side
+        // of the one-time `php artisan storage:migrate-to-supabase`
+        // command (see app/Console/Commands/MigrateStorageToSupabase.php).
+        // Safe to leave defined permanently -- nothing else in the app
+        // references these disk names, and they cost nothing if unused.
+        // Do not delete the underlying files until you've confirmed the
+        // migration succeeded and things have been stable for a while.
+        'legacy_public' => [
+            'driver' => 'local',
+            'root' => storage_path('app/public'),
+            'throw' => false,
+            'report' => false,
+        ],
+
+        'legacy_private' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'visibility' => 'private',
             'throw' => false,
             'report' => false,
         ],

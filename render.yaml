@@ -88,6 +88,18 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false # your Netlify URL, used for CORS / password-reset links
+      - key: SUPABASE_S3_ACCESS_KEY_ID
+        sync: false # Supabase project -> Settings -> Storage -> S3 Connection -> Access key ID
+      - key: SUPABASE_S3_SECRET_ACCESS_KEY
+        sync: false # same screen -> Secret access key -- treat like a password, never commit it
+      - key: SUPABASE_S3_REGION
+        value: eu-west-1
+      - key: SUPABASE_S3_ENDPOINT
+        value: https://ezwfgpxvfyfhvcguydey.storage.supabase.co/storage/v1/s3
+      - key: SUPABASE_S3_PUBLIC_BUCKET
+        value: skulag-images-sign # school logos + principal signatures -- served through MediaController, never exposed directly
+      - key: SUPABASE_S3_PRIVATE_BUCKET
+        value: skulag-photos # student photos -- signed-URL access only, see Student::photo_url
 
   # Runs Laravel's scheduler every 5 minutes -- this drives
   # `billing:process-lifecycle` (trial expiry / grace periods, Stage 39)
@@ -124,6 +136,18 @@ services:
         value: require
       - key: QUEUE_CONNECTION
         value: database
+      - key: SUPABASE_S3_ACCESS_KEY_ID
+        sync: false # same value as the web service
+      - key: SUPABASE_S3_SECRET_ACCESS_KEY
+        sync: false # same value as the web service
+      - key: SUPABASE_S3_REGION
+        value: eu-west-1
+      - key: SUPABASE_S3_ENDPOINT
+        value: https://ezwfgpxvfyfhvcguydey.storage.supabase.co/storage/v1/s3
+      - key: SUPABASE_S3_PUBLIC_BUCKET
+        value: skulag-images-sign
+      - key: SUPABASE_S3_PRIVATE_BUCKET
+        value: skulag-photos
       - key: MAIL_MAILER
         sync: false
       - key: MAIL_HOST
