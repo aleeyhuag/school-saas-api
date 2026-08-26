@@ -23,6 +23,7 @@ require __DIR__.'/api-governance.php';
 require __DIR__.'/api-exports.php';
 require __DIR__.'/api-sync.php';
 require __DIR__.'/api-id-cards.php';
+require __DIR__.'/api-cbt.php';
 
 Route::get('/user', function (Request $request) {
     return $request->user();
