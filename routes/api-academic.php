@@ -69,4 +69,5 @@ Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal|t
 Route::middleware(['auth:sanctum', 'school.active', 'role:teacher'])->group(function () {
     Route::get('my-class/students', [StudentController::class, 'myClass']);
     Route::put('my-class/students/{student}', [StudentController::class, 'updateMyClassStudent']);
+    Route::post('my-class/students/{student}/photo', [StudentController::class, 'uploadMyClassStudentPhoto']);
 });

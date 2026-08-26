@@ -277,4 +277,44 @@ class StudentController extends Controller
 
         return $student->fresh();
     }
+
+    /**
+     * Class-teacher version of student photo upload.
+     *
+     * This deliberately does not reuse the proprietor/principal route
+     * because the authorization boundary is different: a class teacher
+     * may only upload/replace a photo for a student in a class where
+     * they are explicitly assigned as the class teacher.
+     */
+    public function uploadMyClassStudentPhoto(Student $student)
+    {
+        $user = Auth::user();
+
+        if ((int) $student->school_id !== (int) $user->school_id) {
+            abort(403, 'This student does not belong to your school.');
+        }
+
+        $isClassTeacher = TeacherAssignment::where('user_id', $user->id)
+            ->where('school_id', $user->school_id)
+            ->where('school_class_id', $student->school_class_id)
+            ->where('is_class_teacher', true)
+            ->exists();
+
+        if (! $isClassTeacher) {
+            abort(403, 'You are not the class teacher for this student.');
+        }
+
+        request()->validate([
+            'photo' => ['required', 'image', 'mimes:jpeg,png,webp', 'max:2048'], // 2MB
+        ]);
+
+        if ($student->photo_path) {
+            Storage::disk('private')->delete($student->photo_path);
+        }
+
+        $path = request()->file('photo')->store('student-photos', 'private');
+        $student->update(['photo_path' => $path]);
+
+        return $student->fresh();
+    }
 }
