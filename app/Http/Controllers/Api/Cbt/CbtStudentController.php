@@ -21,7 +21,7 @@ class CbtStudentController extends Controller
 
     private function finish(CbtAttempt $attempt): CbtAttempt
     {
-        $attempt->load(['exam.questions.options', 'answers']);
+        $attempt->load(['exam.questions.options', 'answers.question', 'answers.option']);
         $score = 0; $attempted = 0;
         $questionCount = $attempt->exam->questions->count();
         foreach ($attempt->answers as $answer) {
@@ -107,7 +107,6 @@ class CbtStudentController extends Controller
     {
         $student = $this->student();
         abort_unless((int) $cbtAttempt->school_id === (int) $student->school_id, 403);
-        abort_unless((int) $cbtAttempt->school_id === (int) $student->school_id, 403);
         abort_unless($cbtAttempt->student_id === $student->id, 403);
         if ($cbtAttempt->status === 'in_progress' && now()->gte($cbtAttempt->expires_at)) $cbtAttempt = $this->finish($cbtAttempt);
         return $this->attemptResponse($cbtAttempt);
@@ -122,7 +121,10 @@ class CbtStudentController extends Controller
         if (now()->gte($cbtAttempt->expires_at)) return response()->json(['message' => 'Time has expired.', 'expired' => true], 422);
         $data = $request->validate(['question_id' => ['required', 'integer'], 'option_id' => ['nullable', 'integer']]);
         $question = $cbtAttempt->exam->questions()->whereKey($data['question_id'])->firstOrFail();
-        if ($data['option_id'] !== null) $question->options()->whereKey($data['option_id'])->firstOrFail();
+        if ($data['option_id'] !== null) {
+            $optionBelongsToQuestion = $question->options()->whereKey($data['option_id'])->exists();
+            abort_unless($optionBelongsToQuestion, 422, 'That answer option does not belong to this question. Please select an option from the current question.');
+        }
         CbtAnswer::updateOrCreate(['cbt_attempt_id' => $cbtAttempt->id, 'cbt_question_id' => $question->id], ['cbt_question_option_id' => $data['option_id']]);
         return ['saved' => true];
     }

@@ -66,7 +66,7 @@ class LoginController extends Controller
             // onto another active branch they still have access to
             // and let the login through, same self-unlock principle
             // as the billing exception above.
-            if ($isBlocked && $isProprietor) {
+            if ($isBlocked && $user->hasRole('proprietor')) {
                 $activeBranchId = $user->accessibleSchools()
                     ->where('schools.id', '!=', $school->id)
                     ->where('schools.is_active', true)
