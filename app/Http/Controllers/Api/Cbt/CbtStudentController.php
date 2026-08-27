@@ -60,19 +60,29 @@ class CbtStudentController extends Controller
     {
         $student = $this->student();
         $now = now();
-        return CbtExam::with(['subject', 'term.academicSession', 'schoolClasses'])
+        return CbtExam::with(['subject', 'term.academicSession'])
+            ->where('school_id', $student->school_id)
             ->where('published', true)
             ->whereHas('schoolClasses', fn ($q) => $q->where('school_classes.id', $student->school_class_id))
-            ->where('starts_at', '<=', $now)->where('ends_at', '>=', $now)
-            ->get()->map(function ($exam) use ($student) {
+            ->where('ends_at', '>=', $now)
+            ->orderBy('starts_at')
+            ->get()->map(function ($exam) use ($student, $now) {
                 $attempt = CbtAttempt::where('cbt_exam_id', $exam->id)->where('student_id', $student->id)->first();
-                return ['id' => $exam->id, 'title' => $exam->title, 'subject' => $exam->subject, 'term' => $exam->term, 'instructions' => $exam->instructions, 'duration_minutes' => $exam->duration_minutes, 'starts_at' => $exam->starts_at, 'ends_at' => $exam->ends_at, 'pass_mark' => $exam->pass_mark, 'question_count' => $exam->questions()->count(), 'attempt_status' => $attempt?->status, 'attempt_id' => $attempt?->id];
+                $status = $now->lt($exam->starts_at) ? 'upcoming' : ($now->gte($exam->ends_at) ? 'ended' : 'available');
+                return [
+                    'id' => $exam->id, 'title' => $exam->title, 'subject' => $exam->subject, 'term' => $exam->term,
+                    'instructions' => $exam->instructions, 'duration_minutes' => $exam->duration_minutes,
+                    'starts_at' => $exam->starts_at, 'ends_at' => $exam->ends_at, 'pass_mark' => $exam->pass_mark,
+                    'question_count' => $exam->questions()->count(), 'availability_status' => $status,
+                    'attempt_status' => $attempt?->status, 'attempt_id' => $attempt?->id,
+                ];
             });
     }
 
     public function start(CbtExam $cbtExam)
     {
         $student = $this->student();
+        abort_unless((int) $cbtExam->school_id === (int) $student->school_id, 404);
         abort_unless($cbtExam->published, 404);
         abort_unless($cbtExam->schoolClasses()->whereKey($student->school_class_id)->exists(), 403);
         abort_if(now()->lt($cbtExam->starts_at), 422, 'This exam has not started yet.');
@@ -96,6 +106,8 @@ class CbtStudentController extends Controller
     public function show(CbtAttempt $cbtAttempt)
     {
         $student = $this->student();
+        abort_unless((int) $cbtAttempt->school_id === (int) $student->school_id, 403);
+        abort_unless((int) $cbtAttempt->school_id === (int) $student->school_id, 403);
         abort_unless($cbtAttempt->student_id === $student->id, 403);
         if ($cbtAttempt->status === 'in_progress' && now()->gte($cbtAttempt->expires_at)) $cbtAttempt = $this->finish($cbtAttempt);
         return $this->attemptResponse($cbtAttempt);
@@ -104,6 +116,7 @@ class CbtStudentController extends Controller
     public function saveAnswer(Request $request, CbtAttempt $cbtAttempt)
     {
         $student = $this->student();
+        abort_unless((int) $cbtAttempt->school_id === (int) $student->school_id, 403);
         abort_unless($cbtAttempt->student_id === $student->id, 403);
         abort_if($cbtAttempt->status !== 'in_progress', 422, 'This attempt is already submitted.');
         if (now()->gte($cbtAttempt->expires_at)) return response()->json(['message' => 'Time has expired.', 'expired' => true], 422);
@@ -117,6 +130,7 @@ class CbtStudentController extends Controller
     public function submit(CbtAttempt $cbtAttempt)
     {
         $student = $this->student();
+        abort_unless((int) $cbtAttempt->school_id === (int) $student->school_id, 403);
         abort_unless($cbtAttempt->student_id === $student->id, 403);
         if ($cbtAttempt->status === 'submitted') return $this->attemptResponse($cbtAttempt);
         return $this->attemptResponse($this->finish($cbtAttempt));

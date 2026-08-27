@@ -36,11 +36,6 @@ Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal']
     Route::post('students/{student}/photo', [StudentController::class, 'uploadPhoto']);
     Route::post('students/bulk-import', BulkImportStudentsController::class);
 
-    Route::get('promotions/options', [StudentPromotionController::class, 'options']);
-    Route::get('promotions/students', [StudentPromotionController::class, 'students']);
-    Route::post('promotions', [StudentPromotionController::class, 'execute']);
-    Route::get('promotions/history', [StudentPromotionController::class, 'history']);
-
     Route::post('invite-user', InviteUserController::class);
     Route::get('dashboard-stats', DashboardStatsController::class);
 
@@ -49,6 +44,15 @@ Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal']
     Route::post('staff/{user}/reset-password', [StaffController::class, 'resetPassword']);
     Route::post('staff/{user}/add-role', [StaffController::class, 'addRole']);
     Route::post('staff/{user}/remove-role', [StaffController::class, 'removeRole']);
+});
+
+// Promotion is a Principal responsibility. Proprietors do not receive
+// the promotion UI or API capability.
+Route::middleware(['auth:sanctum', 'school.active', 'role:principal'])->group(function () {
+    Route::get('promotions/options', [StudentPromotionController::class, 'options']);
+    Route::get('promotions/students', [StudentPromotionController::class, 'students']);
+    Route::post('promotions', [StudentPromotionController::class, 'execute']);
+    Route::get('promotions/history', [StudentPromotionController::class, 'history']);
 });
 
 // VIEWING classes/subjects/students — needed by Teacher (attendance
@@ -69,5 +73,5 @@ Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal|t
 Route::middleware(['auth:sanctum', 'school.active', 'role:teacher'])->group(function () {
     Route::get('my-class/students', [StudentController::class, 'myClass']);
     Route::put('my-class/students/{student}', [StudentController::class, 'updateMyClassStudent']);
-    Route::post('my-class/students/{student}/photo', [StudentController::class, 'uploadMyClassStudentPhoto']);
+    Route::post('my-class/students/{student}/photo', [StudentController::class, 'uploadMyClassPhoto']);
 });

@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal'])->group(function () {
+Route::middleware(['auth:sanctum', 'school.active', 'role:principal'])->group(function () {
     Route::get('id-cards/{student}/preview', [IdCardController::class, 'preview']);
     // POST, not GET — a whole-class selection can be 30-100 student ids,
     // too large to reliably fit as a query string.
