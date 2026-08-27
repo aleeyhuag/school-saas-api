@@ -4,13 +4,14 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToSchool;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CbtExam extends Model
 {
-    use BelongsToSchool;
+    use BelongsToSchool, SoftDeletes;
 
     protected $fillable = [
         'school_id', 'term_id', 'subject_id', 'title', 'instructions',

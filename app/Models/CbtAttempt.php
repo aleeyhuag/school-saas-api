@@ -20,7 +20,7 @@ class CbtAttempt extends Model
         'started_at' => 'datetime', 'expires_at' => 'datetime', 'submitted_at' => 'datetime',
         'score' => 'decimal:2', 'percentage' => 'decimal:2', 'passed' => 'boolean',
     ];
-    public function exam(): BelongsTo { return $this->belongsTo(CbtExam::class, 'cbt_exam_id'); }
+    public function exam(): BelongsTo { return $this->belongsTo(CbtExam::class, 'cbt_exam_id')->withTrashed(); }
     public function student(): BelongsTo { return $this->belongsTo(Student::class); }
     public function answers(): HasMany { return $this->hasMany(CbtAnswer::class); }
 }

@@ -9,6 +9,8 @@ use App\Models\CbtExam;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class CbtStudentController extends Controller
 {
@@ -21,26 +23,53 @@ class CbtStudentController extends Controller
 
     private function finish(CbtAttempt $attempt): CbtAttempt
     {
-        $attempt->load(['exam.questions.options', 'answers.question', 'answers.option']);
-        $score = 0; $attempted = 0;
-        $questionCount = $attempt->exam->questions->count();
-        foreach ($attempt->answers as $answer) {
-            if ($answer->cbt_question_option_id) $attempted++;
-            $option = $answer->option;
-            if ($option?->is_correct) $score += (float) $answer->question->marks;
-        }
-        $total = (float) $attempt->exam->questions->sum('marks');
-        $percentage = $total > 0 ? round(($score / $total) * 100, 2) : 0;
-        $submittedAt = now();
-        $started = $attempt->started_at;
-        $attempt->update([
-            'status' => 'submitted', 'submitted_at' => $submittedAt,
-            'score' => $score, 'percentage' => $percentage,
-            'passed' => $percentage >= (float) $attempt->exam->pass_mark,
-            'attempted_count' => $attempted, 'unanswered_count' => max(0, $questionCount - $attempted),
-            'time_used_seconds' => min($started->diffInSeconds($submittedAt), $attempt->exam->duration_minutes * 60),
-        ]);
-        return $attempt->fresh();
+        return DB::transaction(function () use ($attempt) {
+            $locked = CbtAttempt::query()->lockForUpdate()->findOrFail($attempt->id);
+            if ($locked->status === 'submitted') {
+                return $locked->fresh();
+            }
+
+            $locked->load('exam');
+            $questions = $locked->exam->questions()->with('options')->get();
+            $answers = CbtAnswer::query()
+                ->where('cbt_attempt_id', $locked->id)
+                ->with(['question', 'option'])
+                ->get()
+                ->keyBy('cbt_question_id');
+
+            $score = 0.0;
+            $attempted = 0;
+            foreach ($questions as $question) {
+                $answer = $answers->get($question->id);
+                if ($answer?->cbt_question_option_id) {
+                    $attempted++;
+                }
+                if ($answer?->option?->is_correct) {
+                    $score += (float) $question->marks;
+                }
+            }
+
+            $total = (float) $questions->sum('marks');
+            $percentage = $total > 0 ? round(($score / $total) * 100, 2) : 0;
+            $submittedAt = now();
+            $started = $locked->started_at;
+            $timeUsed = $started
+                ? min($started->diffInSeconds($submittedAt), (int) $locked->exam->duration_minutes * 60)
+                : 0;
+
+            $locked->update([
+                'status' => 'submitted',
+                'submitted_at' => $submittedAt,
+                'score' => $score,
+                'percentage' => $percentage,
+                'passed' => $percentage >= (float) $locked->exam->pass_mark,
+                'attempted_count' => $attempted,
+                'unanswered_count' => max(0, $questions->count() - $attempted),
+                'time_used_seconds' => $timeUsed,
+            ]);
+
+            return $locked->fresh();
+        });
     }
 
     private function publicQuestions(CbtAttempt $attempt): array
@@ -118,9 +147,10 @@ class CbtStudentController extends Controller
         abort_unless((int) $cbtAttempt->school_id === (int) $student->school_id, 403);
         abort_unless($cbtAttempt->student_id === $student->id, 403);
         abort_if($cbtAttempt->status !== 'in_progress', 422, 'This attempt is already submitted.');
-        if (now()->gte($cbtAttempt->expires_at)) return response()->json(['message' => 'Time has expired.', 'expired' => true], 422);
+        if (now()->gte($cbtAttempt->expires_at)) return response()->json(['code' => 'cbt_time_expired', 'message' => 'Time has expired. The exam will now be submitted. Please wait for the result.', 'expired' => true], 422);
         $data = $request->validate(['question_id' => ['required', 'integer'], 'option_id' => ['nullable', 'integer']]);
-        $question = $cbtAttempt->exam->questions()->whereKey($data['question_id'])->firstOrFail();
+        $question = $cbtAttempt->exam->questions()->whereKey($data['question_id'])->first();
+        abort_unless($question, 404, 'That question is no longer available in this examination.');
         if ($data['option_id'] !== null) {
             $optionBelongsToQuestion = $question->options()->whereKey($data['option_id'])->exists();
             abort_unless($optionBelongsToQuestion, 422, 'That answer option does not belong to this question. Please select an option from the current question.');
@@ -133,9 +163,44 @@ class CbtStudentController extends Controller
     {
         $student = $this->student();
         abort_unless((int) $cbtAttempt->school_id === (int) $student->school_id, 403);
-        abort_unless($cbtAttempt->student_id === $student->id, 403);
-        if ($cbtAttempt->status === 'submitted') return $this->attemptResponse($cbtAttempt);
-        return $this->attemptResponse($this->finish($cbtAttempt));
+        abort_unless((int) $cbtAttempt->student_id === (int) $student->id, 403);
+
+        if ($cbtAttempt->status === 'submitted') {
+            return $this->attemptResponse($cbtAttempt);
+        }
+
+        try {
+            return $this->attemptResponse($this->finish($cbtAttempt));
+        } catch (Throwable $e) {
+            Log::error('CBT submission failed', [
+                'attempt_id' => $cbtAttempt->id,
+                'exam_id' => $cbtAttempt->cbt_exam_id,
+                'student_id' => $student->id,
+                'school_id' => $student->school_id,
+                'exception' => $e,
+            ]);
+
+            // A database transaction may have committed before a later
+            // response/serialization step failed. Re-check the attempt so
+            // we never tell a student to submit again when their marks are
+            // already safely stored.
+            $saved = CbtAttempt::query()->find($cbtAttempt->id);
+            if ($saved?->status === 'submitted') {
+                try {
+                    return $this->attemptResponse($saved);
+                } catch (Throwable $responseError) {
+                    Log::error('CBT submitted attempt response failed', [
+                        'attempt_id' => $cbtAttempt->id,
+                        'exception' => $responseError,
+                    ]);
+                }
+            }
+
+            return response()->json([
+                'code' => 'cbt_submission_failed',
+                'message' => 'We could not complete your CBT submission right now. Your answers are still saved. Please check your connection and try again. If the problem continues, contact your teacher.',
+            ], 500);
+        }
     }
 
     public function results()
