@@ -42,7 +42,7 @@ class CbtExamController extends Controller
      */
     private function toUtc(string $value): Carbon
     {
-        return Carbon::parse($value)->utc();
+        return Carbon::parse($value)->setTimezone('UTC');
     }
 
     private function ensureManager(): void
