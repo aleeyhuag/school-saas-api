@@ -136,7 +136,19 @@ class CbtStudentController extends Controller
         $started = now();
         $expires = $started->copy()->addMinutes($cbtExam->duration_minutes);
         if ($expires->gt($cbtExam->ends_at)) $expires = $cbtExam->ends_at->copy();
-        $attempt = CbtAttempt::create(['school_id' => $student->school_id, 'cbt_exam_id' => $cbtExam->id, 'student_id' => $student->id, 'started_at' => $started, 'expires_at' => $expires]);
+        // NOTE: 'status' relies on a DB-level default('in_progress') in
+        // the migration, but Eloquent's create() does not refresh a
+        // model's in-memory attributes from server-side column defaults
+        // after INSERT — only what's explicitly passed here is present
+        // on $attempt until it's re-fetched. Leaving 'status' out meant
+        // $attempt->status was null on the very first response, so
+        // attemptResponse()'s `$attempt->status === 'in_progress'` check
+        // failed and the questions array came back empty on the first
+        // "Start Exam" click — exactly why a second click (which re-reads
+        // the attempt fresh from DB via show()) was needed before the
+        // exam actually opened. Setting it explicitly here removes the
+        // need for any in-memory/DB inconsistency at all.
+        $attempt = CbtAttempt::create(['school_id' => $student->school_id, 'cbt_exam_id' => $cbtExam->id, 'student_id' => $student->id, 'started_at' => $started, 'expires_at' => $expires, 'status' => 'in_progress']);
         return $this->attemptResponse($attempt);
     }
 
@@ -218,9 +230,19 @@ class CbtStudentController extends Controller
 
     private function resultResponse(CbtAttempt $attempt)
     {
+        // NOTE: CbtExam does not use SoftDeletes (no deleted_at column,
+        // no trait) — a previous version of this method called
+        // ->withTrashed() here, which is undefined on a non-soft-deleting
+        // model and threw a BadMethodCallException on every submission.
+        // finish() had already committed the score by that point, so the
+        // student saw "submission failed" even though their marks were
+        // saved — exactly the reported symptom. destroy() on CbtExam
+        // already refuses to delete an exam that has any attempts
+        // (`abort_if($cbtExam->attempts()->exists(), ...)`), so an exam
+        // reachable from a real attempt can never be missing here; a
+        // plain findOrFail() is correct and sufficient.
         $exam = CbtExam::query()
             ->with(['subject', 'term.academicSession'])
-            ->withTrashed()
             ->findOrFail($attempt->cbt_exam_id);
 
         return response()->json([

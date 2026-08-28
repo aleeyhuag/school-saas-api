@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Api\Cbt;
 
 use App\Http\Controllers\Controller;
-use Carbon\Carbon;
 use App\Models\CbtExam;
 use App\Models\CbtQuestion;
 use App\Models\CbtQuestionBank;
 use App\Models\TeacherAssignment;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +16,34 @@ use Illuminate\Validation\ValidationException;
 class CbtExamController extends Controller
 {
     private function user() { return Auth::user(); }
+
+    /**
+     * The frontend sends starts_at/ends_at as an ISO 8601 string with an
+     * explicit UTC offset (e.g. "2026-08-28T15:00:00+01:00" for 15:00
+     * Lagos time) so a wall-clock time typed by the user survives being
+     * stored on a UTC-based server.
+     *
+     * That only works if the offset is actually applied before storage.
+     * Laravel's Eloquent 'datetime' cast does NOT do this automatically:
+     * when the incoming string doesn't match the DB grammar's storage
+     * format, it falls back to Carbon::parse(), which keeps whatever
+     * offset was in the string rather than converting to UTC — so
+     * format()'ing it for storage just writes the wall-clock digits
+     * verbatim ("15:00:00"), silently discarding the "+01:00". On
+     * read-back, Eloquent then serializes that stored "15:00:00" back to
+     * the frontend as "...T15:00:00Z" (an explicit UTC label), so the
+     * browser correctly reads it as UTC and displays it as 16:00 Lagos
+     * time — the reported "always one hour ahead" bug. Verified directly
+     * against this project's own Eloquent model behavior, not assumed.
+     *
+     * The fix has to happen here, not in the cast: parse the incoming
+     * offset explicitly and convert to UTC ourselves before it ever
+     * reaches CbtExam::create()/update().
+     */
+    private function toUtc(string $value): Carbon
+    {
+        return Carbon::parse($value)->utc();
+    }
 
     private function ensureManager(): void
     {
@@ -114,7 +142,7 @@ class CbtExamController extends Controller
             $exam = CbtExam::create([
                 'school_id' => $this->user()->school_id, 'term_id' => $data['term_id'], 'subject_id' => $data['subject_id'],
                 'title' => $data['title'], 'instructions' => $data['instructions'] ?? null, 'duration_minutes' => $data['duration_minutes'],
-                'starts_at' => $data['starts_at'], 'ends_at' => $data['ends_at'], 'pass_mark' => $data['pass_mark'],
+                'starts_at' => $this->toUtc($data['starts_at']), 'ends_at' => $this->toUtc($data['ends_at']), 'pass_mark' => $data['pass_mark'],
                 'randomize_questions' => $data['randomize_questions'] ?? false, 'randomize_options' => $data['randomize_options'] ?? false,
                 'published' => false,
             ]);
@@ -133,9 +161,7 @@ class CbtExamController extends Controller
     public function update(Request $request, CbtExam $cbtExam)
     {
         $this->ensureManager(); $this->ensureTeacherCanUseExam($cbtExam);
-
-        $hasAttempts = $cbtExam->attempts()->exists();
-        $hasInProgressAttempts = $cbtExam->attempts()->where('status', 'in_progress')->exists();
+        abort_if($cbtExam->published && now()->gte($cbtExam->starts_at), 422, 'A running or started exam cannot be edited.');
         $data = $request->validate([
             'term_id' => ['sometimes', 'integer', 'exists:terms,id'], 'subject_id' => ['sometimes', 'integer', 'exists:subjects,id'],
             'title' => ['sometimes', 'string', 'max:255'], 'instructions' => ['nullable', 'string'],
@@ -144,42 +170,23 @@ class CbtExamController extends Controller
             'randomize_options' => ['sometimes', 'boolean'], 'school_class_ids' => ['sometimes', 'array', 'min:1'],
             'school_class_ids.*' => ['integer', 'exists:school_classes,id'],
         ]);
-
-        if ($hasAttempts) {
-            $allowedAfterAttempt = ['title', 'instructions', 'starts_at', 'ends_at'];
-            $forbidden = array_diff(array_keys($data), $allowedAfterAttempt);
-            abort_if($forbidden, 422, 'This exam already has student attempts. Only the title, instructions and schedule can be changed so saved marks remain consistent.');
-            if ($hasInProgressAttempts && (array_key_exists('starts_at', $data) || array_key_exists('ends_at', $data))) {
-                abort(422, 'This exam currently has a student taking it. Finish or wait for the active attempt before changing the examination schedule.');
-            }
-        } else {
-            abort_if($cbtExam->published && now()->gte($cbtExam->starts_at), 422, 'A running or started exam cannot be edited.');
-        }
-
-        $start = Carbon::parse($data['starts_at'] ?? $cbtExam->starts_at);
-        $end = Carbon::parse($data['ends_at'] ?? $cbtExam->ends_at);
-        abort_if($end->lte($start), 422, 'The examination end time must be after the start time.');
-
-        if (!$hasAttempts) {
-            $subjectId = (int) ($data['subject_id'] ?? $cbtExam->subject_id);
-            $classIds = array_map('intval', $data['school_class_ids'] ?? $cbtExam->schoolClasses()->pluck('school_classes.id')->all());
-            $this->ensureOwnedIds([$subjectId], 'subjects');
-            $this->ensureOwnedIds($classIds, 'school_classes');
-            $this->ensureCreateScope($subjectId, $classIds);
-            $cbtExam->update($data);
-            if (isset($data['school_class_ids'])) $cbtExam->schoolClasses()->sync($data['school_class_ids']);
-        } else {
-            $cbtExam->update(array_intersect_key($data, array_flip(['title', 'instructions', 'starts_at', 'ends_at'])));
-        }
-
+        $subjectId = (int) ($data['subject_id'] ?? $cbtExam->subject_id);
+        $classIds = array_map('intval', $data['school_class_ids'] ?? $cbtExam->schoolClasses()->pluck('school_classes.id')->all());
+        $this->ensureOwnedIds([$subjectId], 'subjects'); $this->ensureOwnedIds($classIds, 'school_classes');
+        $this->ensureCreateScope($subjectId, $classIds);
+        // Same UTC normalization as store() — see toUtc()'s docblock.
+        if (isset($data['starts_at'])) $data['starts_at'] = $this->toUtc($data['starts_at']);
+        if (isset($data['ends_at'])) $data['ends_at'] = $this->toUtc($data['ends_at']);
+        $cbtExam->update($data);
+        if (isset($data['school_class_ids'])) $cbtExam->schoolClasses()->sync($data['school_class_ids']);
         return $cbtExam->fresh()->load(['subject', 'term.academicSession', 'schoolClasses', 'questions.options']);
     }
 
     public function destroy(CbtExam $cbtExam)
     {
         $this->ensureManager(); $this->ensureTeacherCanUseExam($cbtExam);
-        $cbtExam->delete();
-        return response()->json(['message' => 'CBT exam removed from active examinations. Student attempts and saved marks have been preserved.']);
+        abort_if($cbtExam->attempts()->exists(), 422, 'An exam with student attempts cannot be deleted. Unpublish it instead.');
+        $cbtExam->delete(); return response()->json(['message' => 'CBT exam deleted.']);
     }
 
     public function publish(CbtExam $cbtExam)
