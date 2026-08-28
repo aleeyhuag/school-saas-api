@@ -194,6 +194,8 @@ class CbtExamController extends Controller
             $this->ensureOwnedIds([$subjectId], 'subjects');
             $this->ensureOwnedIds($classIds, 'school_classes');
             $this->ensureCreateScope($subjectId, $classIds);
+            if (isset($data['starts_at'])) $data['starts_at'] = $this->toUtc($data['starts_at']);
+            if (isset($data['ends_at'])) $data['ends_at'] = $this->toUtc($data['ends_at']);
             $cbtExam->update($data);
             if (isset($data['school_class_ids'])) $cbtExam->schoolClasses()->sync($data['school_class_ids']);
         } else {
