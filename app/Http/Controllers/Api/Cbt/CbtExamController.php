@@ -161,7 +161,10 @@ class CbtExamController extends Controller
     public function update(Request $request, CbtExam $cbtExam)
     {
         $this->ensureManager(); $this->ensureTeacherCanUseExam($cbtExam);
-        abort_if($cbtExam->published && now()->gte($cbtExam->starts_at), 422, 'A running or started exam cannot be edited.');
+
+        $hasAttempts = $cbtExam->attempts()->exists();
+        $hasInProgressAttempts = $cbtExam->attempts()->where('status', 'in_progress')->exists();
+
         $data = $request->validate([
             'term_id' => ['sometimes', 'integer', 'exists:terms,id'], 'subject_id' => ['sometimes', 'integer', 'exists:subjects,id'],
             'title' => ['sometimes', 'string', 'max:255'], 'instructions' => ['nullable', 'string'],
@@ -170,23 +173,40 @@ class CbtExamController extends Controller
             'randomize_options' => ['sometimes', 'boolean'], 'school_class_ids' => ['sometimes', 'array', 'min:1'],
             'school_class_ids.*' => ['integer', 'exists:school_classes,id'],
         ]);
-        $subjectId = (int) ($data['subject_id'] ?? $cbtExam->subject_id);
-        $classIds = array_map('intval', $data['school_class_ids'] ?? $cbtExam->schoolClasses()->pluck('school_classes.id')->all());
-        $this->ensureOwnedIds([$subjectId], 'subjects'); $this->ensureOwnedIds($classIds, 'school_classes');
-        $this->ensureCreateScope($subjectId, $classIds);
-        // Same UTC normalization as store() — see toUtc()'s docblock.
-        if (isset($data['starts_at'])) $data['starts_at'] = $this->toUtc($data['starts_at']);
-        if (isset($data['ends_at'])) $data['ends_at'] = $this->toUtc($data['ends_at']);
-        $cbtExam->update($data);
-        if (isset($data['school_class_ids'])) $cbtExam->schoolClasses()->sync($data['school_class_ids']);
+        if ($hasAttempts) {
+            $allowedAfterAttempt = ['title', 'instructions', 'starts_at', 'ends_at'];
+            $forbidden = array_diff(array_keys($data), $allowedAfterAttempt);
+            abort_if($forbidden, 422, 'This exam already has student attempts. Only the title, instructions and schedule can be changed so saved marks remain consistent.');
+            if ($hasInProgressAttempts && (array_key_exists('starts_at', $data) || array_key_exists('ends_at', $data))) {
+                abort(422, 'This exam currently has a student taking it. Finish or wait for the active attempt before changing the examination schedule.');
+            }
+        } else {
+            abort_if($cbtExam->published && now()->gte($cbtExam->starts_at), 422, 'A running or started exam cannot be edited.');
+        }
+
+        $start = Carbon::parse($data['starts_at'] ?? $cbtExam->starts_at);
+        $end = Carbon::parse($data['ends_at'] ?? $cbtExam->ends_at);
+        abort_if($end->lte($start), 422, 'The examination end time must be after the start time.');
+
+        if (!$hasAttempts) {
+            $subjectId = (int) ($data['subject_id'] ?? $cbtExam->subject_id);
+            $classIds = array_map('intval', $data['school_class_ids'] ?? $cbtExam->schoolClasses()->pluck('school_classes.id')->all());
+            $this->ensureOwnedIds([$subjectId], 'subjects');
+            $this->ensureOwnedIds($classIds, 'school_classes');
+            $this->ensureCreateScope($subjectId, $classIds);
+            $cbtExam->update($data);
+            if (isset($data['school_class_ids'])) $cbtExam->schoolClasses()->sync($data['school_class_ids']);
+        } else {
+            $cbtExam->update(array_intersect_key($data, array_flip(['title', 'instructions', 'starts_at', 'ends_at'])));
+        }
         return $cbtExam->fresh()->load(['subject', 'term.academicSession', 'schoolClasses', 'questions.options']);
     }
 
     public function destroy(CbtExam $cbtExam)
     {
         $this->ensureManager(); $this->ensureTeacherCanUseExam($cbtExam);
-        abort_if($cbtExam->attempts()->exists(), 422, 'An exam with student attempts cannot be deleted. Unpublish it instead.');
-        $cbtExam->delete(); return response()->json(['message' => 'CBT exam deleted.']);
+        $cbtExam->delete();
+        return response()->json(['message' => 'CBT exam removed from active examinations. Student attempts and saved marks have been preserved.']);
     }
 
     public function publish(CbtExam $cbtExam)
