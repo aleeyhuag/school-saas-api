@@ -63,7 +63,7 @@ class CbtStudentController extends Controller
             $submittedAt = now();
             $started = $locked->started_at;
             $durationSeconds = (int) $locked->exam->duration_minutes * 60;
-            $timeUsed = $started ? min($started->diffInSeconds($submittedAt), $durationSeconds) : 0;
+            $timeUsed = $started ? (int) min((float) $started->diffInSeconds($submittedAt), (float) $durationSeconds) : 0;
 
             $locked->update([
                 'status' => 'submitted',
