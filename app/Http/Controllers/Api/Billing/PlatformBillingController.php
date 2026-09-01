@@ -87,4 +87,28 @@ class PlatformBillingController extends Controller
 
         return response()->json(['message' => 'Payment rejected — the school has been notified.']);
     }
+
+    /**
+     * Manual re-run of the same three steps `billing:process-lifecycle`
+     * runs automatically at 6am daily. The scheduler is the normal
+     * path — this exists so Super Admin isn't stuck waiting until
+     * tomorrow morning to confirm a fix took effect, or to catch up
+     * immediately after downtime. Runs all three every time, in the
+     * same order as the scheduled command, and reports what each step
+     * did rather than just "done".
+     */
+    public function runLifecycleNow()
+    {
+        $expired = $this->subscriptionService->expireTrials();
+        $renewals = $this->subscriptionService->processRenewals();
+        $reminders = $this->subscriptionService->sendTrialReminders();
+
+        return response()->json([
+            'trials_expired' => $expired,
+            'renewals_entered_grace' => $renewals['entered_grace'],
+            'renewals_locked' => $renewals['locked'],
+            'trial_reminders_sent' => $reminders,
+            'ran_at' => now()->toIso8601String(),
+        ]);
+    }
 }

@@ -381,8 +381,8 @@ class SubscriptionService
     protected function notifyProprietors(School $school, $notification): void
     {
         $school->users()
-            ->whereHas('roles', fn ($q) => $q->where('name', 'proprietor'))
+            ->whereHas('roles', fn ($q) => $q->whereIn('name', ['proprietor', 'principal']))
             ->get()
-            ->each(fn ($proprietor) => $proprietor->notify($notification));
+            ->each(fn ($user) => $user->notify($notification));
     }
 }

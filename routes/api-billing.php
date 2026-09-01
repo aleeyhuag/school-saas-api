@@ -34,6 +34,7 @@ Route::middleware(['auth:sanctum', 'role:super_admin'])->prefix('platform/billin
     Route::get('payments/pending', [PlatformBillingController::class, 'pendingPayments']);
     Route::post('payments/{payment}/confirm', [PlatformBillingController::class, 'confirmPayment']);
     Route::post('payments/{payment}/reject', [PlatformBillingController::class, 'rejectPayment']);
+    Route::post('lifecycle/run', [PlatformBillingController::class, 'runLifecycleNow']);
 });
 
 // Public — Paystack calls this directly, verified via signature
