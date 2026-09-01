@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Platform\PlatformSchoolController;
 use App\Http\Controllers\Api\Platform\PlatformStatsController;
 use App\Http\Controllers\Api\Platform\PlatformBackupController;
+use App\Http\Controllers\Api\Platform\PlatformSuperAdminController;
 use App\Http\Controllers\Diagnostic\StorageHealthController;
 use Illuminate\Support\Facades\Route;
 
@@ -23,4 +24,6 @@ Route::middleware(['auth:sanctum', 'role:super_admin'])->prefix('platform')->gro
     Route::get('schools/{school}/backup/download', [PlatformBackupController::class, 'downloadSchool']);
     Route::get('schools/{school}/export/{module}', [PlatformBackupController::class, 'downloadSchoolModule']);
     Route::get('diagnostics/storage-health', StorageHealthController::class);
+    Route::get('super-admins', [PlatformSuperAdminController::class, 'index']);
+    Route::post('super-admins', [PlatformSuperAdminController::class, 'store']);
 });
