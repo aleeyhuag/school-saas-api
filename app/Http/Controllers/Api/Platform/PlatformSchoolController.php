@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Platform;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Platform\CreateSchoolRequest;
 use App\Models\School;
+use App\Models\Student;
 use App\Models\User;
 use App\Services\SchoolRegistrationService;
 use Illuminate\Support\Facades\DB;
@@ -47,12 +48,55 @@ class PlatformSchoolController extends Controller
         return $query->orderByDesc('created_at')->get();
     }
 
+    /**
+     * Full detail payload for the Super Admin school detail page.
+     * Every user/student query below explicitly bypasses the
+     * BelongsToSchool scope for the same reason as index() above —
+     * there's no acting-user school context in a Super Admin session.
+     */
     public function show(School $school)
     {
-        return $school->loadCount([
-            'users' => fn ($q) => $q->withoutGlobalScope('school'),
-            'students' => fn ($q) => $q->withoutGlobalScope('school'),
-        ])->load(['academicSessions' => fn ($q) => $q->withoutGlobalScope('school')->latest('start_date')->limit(1)]);
+        $school->load([
+            'academicSessions' => fn ($q) => $q->withoutGlobalScope('school')->latest('start_date')->limit(1),
+            'subscription.plan',
+        ]);
+
+        $staff = User::where('school_id', $school->id)->with('roles:id,name')->get();
+
+        $proprietor = $staff->first(fn ($u) => $u->roles->contains('name', 'proprietor'));
+
+        $staffByRole = $staff
+            ->groupBy(fn ($u) => $u->roles->pluck('name')->first() ?? 'unassigned')
+            ->map->count();
+
+        $recentPayments = $school->payments()
+            ->with('plan:id,name')
+            ->latest()
+            ->limit(10)
+            ->get(['id', 'plan_id', 'amount_kobo', 'duration_months', 'method', 'status', 'reference_code', 'reviewed_at', 'created_at']);
+
+        return response()->json([
+            'school' => $school,
+            'proprietor' => $proprietor ? [
+                'id' => $proprietor->id,
+                'name' => $proprietor->name,
+                'email' => $proprietor->email,
+                'phone' => $proprietor->phone,
+                'status' => $proprietor->status,
+                'created_at' => $proprietor->created_at,
+            ] : null,
+            'staff_summary' => [
+                'total' => $staff->count(),
+                'by_role' => $staffByRole,
+            ],
+            'students_summary' => [
+                'total' => Student::withoutGlobalScope('school')->where('school_id', $school->id)->count(),
+            ],
+            'billing' => [
+                'subscription' => $school->subscription,
+                'recent_payments' => $recentPayments,
+            ],
+        ]);
     }
 
     /**
