@@ -3,6 +3,8 @@
 namespace App\Jobs;
 
 use App\Models\Export;
+use App\Models\SchoolClass;
+use App\Models\Student;
 use App\Models\TermResultApproval;
 use App\Notifications\ExportReadyNotification;
 use App\Services\ReportCardPdfService;
@@ -14,7 +16,6 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use ZipArchive;
 
@@ -60,8 +61,7 @@ class ProcessExportJob implements ShouldQueue
                 default => throw new \InvalidArgumentException("Unknown export type: {$export->type}"),
             };
 
-            $privateRoot = rtrim(Storage::disk('private')->path(''), '/');
-            $relativePath = ltrim(Str::after($fullPath, $privateRoot), '/');
+            $relativePath = $this->uploadToPrivateDisk($export, $fullPath, $downloadName);
 
             $export->update([
                 'status' => 'completed',
@@ -110,6 +110,37 @@ class ProcessExportJob implements ShouldQueue
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * Both run*() methods build their ZIP against a real local path —
+     * ZipArchive needs genuine file I/O, which an S3-backed disk can't
+     * give it directly. This is the one place that bridges the two:
+     * stream the finished local file into the 'private' Supabase disk
+     * under a clean, predictable key, then remove the local scratch
+     * copy. Streamed rather than read-then-put so a large school
+     * backup doesn't have to fit entirely in memory.
+     */
+    protected function uploadToPrivateDisk(Export $export, string $localPath, string $downloadName): string
+    {
+        $relativePath = 'exports/'.$export->id.'/'.$downloadName;
+
+        $stream = fopen($localPath, 'r');
+        if ($stream === false) {
+            throw new \RuntimeException('Unable to read the generated export file for upload.');
+        }
+
+        try {
+            Storage::disk('private')->put($relativePath, $stream);
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+        }
+
+        @unlink($localPath);
+
+        return $relativePath;
     }
 
     protected function runSchoolBackup(Export $export, SchoolBackupService $backupService): array
@@ -161,9 +192,11 @@ class ProcessExportJob implements ShouldQueue
             ]);
         }
 
-        $relativePath = 'exports/'.uniqid('report-cards-class-'.$schoolClassId.'-', true).'.zip';
-        $fullPath = Storage::disk('private')->path($relativePath);
-        Storage::disk('private')->makeDirectory('exports');
+        $tmpDir = storage_path('app/private/tmp-exports');
+        if (! is_dir($tmpDir)) {
+            mkdir($tmpDir, 0750, true);
+        }
+        $fullPath = $tmpDir.'/'.uniqid('report-cards-class-'.$schoolClassId.'-', true).'.zip';
 
         $zip = new ZipArchive;
         $zip->open($fullPath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
