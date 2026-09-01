@@ -12,6 +12,7 @@ use App\Services\AuditLogService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -91,7 +92,7 @@ class ExportController extends Controller
     public function requestReportCardBulk(int $schoolClassId)
     {
         request()->validate([
-            'term_id' => ['required', 'integer', 'exists:terms,id'],
+            'term_id' => ['required', 'integer', Rule::exists('terms', 'id')->where('school_id', Auth::user()->school_id)],
         ]);
 
         $termId = (int) request()->input('term_id');

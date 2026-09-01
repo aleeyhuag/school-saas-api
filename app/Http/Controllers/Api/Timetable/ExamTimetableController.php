@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Timetable;
 use App\Http\Controllers\Controller;
 use App\Models\ExamTimetableEntry;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 /**
  * Exam timetable — owned by Exam Officer (create/edit/delete).
@@ -39,11 +40,13 @@ class ExamTimetableController extends Controller
 
     public function store()
     {
+        $schoolId = Auth::user()->school_id;
+
         $validated = request()->validate([
-            'term_id' => ['required', 'integer', 'exists:terms,id'],
-            'subject_id' => ['required', 'integer', 'exists:subjects,id'],
+            'term_id' => ['required', 'integer', Rule::exists('terms', 'id')->where('school_id', $schoolId)],
+            'subject_id' => ['required', 'integer', Rule::exists('subjects', 'id')->where('school_id', $schoolId)],
             'school_class_ids' => ['required', 'array', 'min:1'],
-            'school_class_ids.*' => ['integer', 'exists:school_classes,id'],
+            'school_class_ids.*' => ['integer', Rule::exists('school_classes', 'id')->where('school_id', $schoolId)],
             'exam_date' => ['required', 'date'],
             'start_time' => ['required', 'date_format:H:i'],
             'end_time' => ['required', 'date_format:H:i', 'after:start_time'],
@@ -53,7 +56,7 @@ class ExamTimetableController extends Controller
 
         $entry = ExamTimetableEntry::create([
             ...$validated,
-            'school_id' => Auth::user()->school_id,
+            'school_id' => $schoolId,
         ]);
 
         $entry->schoolClasses()->sync($validated['school_class_ids']);
@@ -64,10 +67,10 @@ class ExamTimetableController extends Controller
     public function update(ExamTimetableEntry $examTimetableEntry)
     {
         $validated = request()->validate([
-            'term_id' => ['sometimes', 'integer', 'exists:terms,id'],
-            'subject_id' => ['sometimes', 'integer', 'exists:subjects,id'],
+            'term_id' => ['sometimes', 'integer', Rule::exists('terms', 'id')->where('school_id', $examTimetableEntry->school_id)],
+            'subject_id' => ['sometimes', 'integer', Rule::exists('subjects', 'id')->where('school_id', $examTimetableEntry->school_id)],
             'school_class_ids' => ['sometimes', 'array', 'min:1'],
-            'school_class_ids.*' => ['integer', 'exists:school_classes,id'],
+            'school_class_ids.*' => ['integer', Rule::exists('school_classes', 'id')->where('school_id', $examTimetableEntry->school_id)],
             'exam_date' => ['sometimes', 'date'],
             'start_time' => ['sometimes', 'date_format:H:i'],
             'end_time' => ['sometimes', 'date_format:H:i'],

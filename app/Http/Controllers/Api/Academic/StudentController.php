@@ -131,7 +131,7 @@ class StudentController extends Controller
     {
         $validated = request()->validate([
             'user_ids' => ['required', 'array'],
-            'user_ids.*' => ['integer', 'exists:users,id'],
+            'user_ids.*' => ['integer', Rule::exists('users', 'id')->where('school_id', $student->school_id)],
         ]);
 
         // sync() only writes the two ID columns by default — but the

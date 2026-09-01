@@ -8,6 +8,8 @@ use App\Models\SchoolClass;
 use App\Models\TermResultApproval;
 use App\Services\AttendanceService;
 use App\Services\ResultService;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -29,9 +31,9 @@ class ResultExportController extends Controller
     public function export()
     {
         request()->validate([
-            'term_id' => ['required', 'integer', 'exists:terms,id'],
+            'term_id' => ['required', 'integer', Rule::exists('terms', 'id')->where('school_id', Auth::user()->school_id)],
             'scope' => ['required', 'in:school,class'],
-            'school_class_id' => ['required_if:scope,class', 'nullable', 'integer', 'exists:school_classes,id'],
+            'school_class_id' => ['required_if:scope,class', 'nullable', 'integer', Rule::exists('school_classes', 'id')->where('school_id', Auth::user()->school_id)],
         ]);
 
         $termId = (int) request()->input('term_id');

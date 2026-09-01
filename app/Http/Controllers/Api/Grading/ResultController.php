@@ -10,6 +10,7 @@ use App\Models\TermResultApproval;
 use App\Notifications\ResultPublishedNotification;
 use App\Services\ResultService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class ResultController extends Controller
@@ -43,7 +44,7 @@ class ResultController extends Controller
     public function approvalStatus(int $schoolClassId)
     {
         request()->validate([
-            'term_id' => ['required', 'integer', 'exists:terms,id'],
+            'term_id' => ['required', 'integer', Rule::exists('terms', 'id')->where('school_id', Auth::user()->school_id)],
         ]);
 
         $this->authorizeClassAccess($schoolClassId);
@@ -75,7 +76,7 @@ class ResultController extends Controller
     public function studentTermResult(int $studentId)
     {
         request()->validate([
-            'term_id' => ['required', 'integer', 'exists:terms,id'],
+            'term_id' => ['required', 'integer', Rule::exists('terms', 'id')->where('school_id', Auth::user()->school_id)],
         ]);
 
         $student = Student::findOrFail($studentId);
@@ -126,7 +127,7 @@ class ResultController extends Controller
     public function classTermResult(int $schoolClassId)
     {
         request()->validate([
-            'term_id' => ['required', 'integer', 'exists:terms,id'],
+            'term_id' => ['required', 'integer', Rule::exists('terms', 'id')->where('school_id', Auth::user()->school_id)],
         ]);
 
         $this->authorizeClassAccess($schoolClassId);
@@ -159,7 +160,7 @@ class ResultController extends Controller
     public function approve(int $schoolClassId)
     {
         request()->validate([
-            'term_id' => ['required', 'integer', 'exists:terms,id'],
+            'term_id' => ['required', 'integer', Rule::exists('terms', 'id')->where('school_id', Auth::user()->school_id)],
         ]);
 
         $termId = (int) request()->input('term_id');
@@ -234,7 +235,7 @@ class ResultController extends Controller
     public function publishPermanently(int $schoolClassId)
     {
         request()->validate([
-            'term_id' => ['required', 'integer', 'exists:terms,id'],
+            'term_id' => ['required', 'integer', Rule::exists('terms', 'id')->where('school_id', Auth::user()->school_id)],
         ]);
 
         $termId = (int) request()->input('term_id');
@@ -289,7 +290,7 @@ class ResultController extends Controller
     public function revokeApproval(int $schoolClassId)
     {
         request()->validate([
-            'term_id' => ['required', 'integer', 'exists:terms,id'],
+            'term_id' => ['required', 'integer', Rule::exists('terms', 'id')->where('school_id', Auth::user()->school_id)],
         ]);
 
         $termId = (int) request()->input('term_id');

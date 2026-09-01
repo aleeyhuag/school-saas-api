@@ -8,6 +8,7 @@ use App\Models\FeePayment;
 use App\Models\Student;
 use App\Models\FeeStructure;
 use App\Models\Term;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use App\Services\FeeService;
 use Illuminate\Support\Facades\Auth;
@@ -66,7 +67,7 @@ class FeePaymentController extends Controller
      */
     public function studentStatus(int $studentId)
     {
-        request()->validate(['term_id' => ['required', 'integer', 'exists:terms,id']]);
+        request()->validate(['term_id' => ['required', 'integer', Rule::exists('terms', 'id')->where('school_id', Auth::user()->school_id)]]);
 
         $student = Student::findOrFail($studentId);
         $user = Auth::user();
@@ -93,7 +94,7 @@ class FeePaymentController extends Controller
      */
     public function classDefaulters(int $schoolClassId)
     {
-        request()->validate(['term_id' => ['required', 'integer', 'exists:terms,id']]);
+        request()->validate(['term_id' => ['required', 'integer', Rule::exists('terms', 'id')->where('school_id', Auth::user()->school_id)]]);
 
         return $this->feeService->classDefaulters($schoolClassId, (int) request()->input('term_id'));
     }

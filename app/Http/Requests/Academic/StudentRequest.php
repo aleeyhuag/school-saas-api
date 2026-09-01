@@ -18,7 +18,7 @@ class StudentRequest extends FormRequest
         $studentId = $this->route('student')?->id;
 
         return [
-            'school_class_id' => ['required', 'integer', 'exists:school_classes,id'],
+            'school_class_id' => ['required', 'integer', Rule::exists('school_classes', 'id')->where('school_id', $this->user()->school_id)],
             'admission_number' => [
                 'required', 'string', 'max:50',
                 Rule::unique('students', 'admission_number')->ignore($studentId),

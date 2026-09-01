@@ -11,6 +11,7 @@ use App\Models\StudentPromotion;
 use App\Services\StudentPromotionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class StudentPromotionController extends Controller
 {
@@ -28,7 +29,7 @@ class StudentPromotionController extends Controller
     public function students(Request $request)
     {
         $request->validate([
-            'school_class_id' => ['required','integer','exists:school_classes,id'],
+            'school_class_id' => ['required','integer', Rule::exists('school_classes', 'id')->where('school_id', Auth::user()->school_id)],
             'status' => ['nullable','in:active,transferred,withdrawn'],
             'search' => ['nullable','string','max:100'],
         ]);

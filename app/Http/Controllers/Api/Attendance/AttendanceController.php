@@ -12,6 +12,7 @@ use App\Models\Term;
 use App\Models\SchoolClass;
 use App\Models\Subject;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class AttendanceController extends Controller
@@ -143,7 +144,7 @@ class AttendanceController extends Controller
     public function index()
     {
         request()->validate([
-            'school_class_id' => ['required', 'integer', 'exists:school_classes,id'],
+            'school_class_id' => ['required', 'integer', Rule::exists('school_classes', 'id')->where('school_id', Auth::user()->school_id)],
             'date' => ['nullable', 'date'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date'],
@@ -193,7 +194,7 @@ class AttendanceController extends Controller
     public function studentSummary(int $studentId)
     {
         request()->validate([
-            'term_id' => ['required', 'integer', 'exists:terms,id'],
+            'term_id' => ['required', 'integer', Rule::exists('terms', 'id')->where('school_id', Auth::user()->school_id)],
         ]);
 
         $user = Auth::user();

@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class CbtQuestionBankController extends Controller
@@ -81,7 +82,7 @@ class CbtQuestionBankController extends Controller
     {
         $this->ensureManager();
         $data = $request->validate([
-            'subject_id' => ['required', 'integer', 'exists:subjects,id'],
+            'subject_id' => ['required', 'integer', Rule::exists('subjects', 'id')->where('school_id', $this->user()->school_id)],
             'question_text' => ['required', 'string'],
             'topic' => ['nullable', 'string', 'max:255'],
             'marks' => ['required', 'numeric', 'min:0.01', 'max:1000'],

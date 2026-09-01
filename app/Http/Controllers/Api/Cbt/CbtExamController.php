@@ -11,6 +11,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class CbtExamController extends Controller
@@ -126,12 +127,14 @@ class CbtExamController extends Controller
     {
         $this->ensureManager();
         $data = $request->validate([
-            'term_id' => ['required', 'integer', 'exists:terms,id'], 'subject_id' => ['required', 'integer', 'exists:subjects,id'],
+            'term_id' => ['required', 'integer', Rule::exists('terms', 'id')->where('school_id', $this->user()->school_id)],
+            'subject_id' => ['required', 'integer', Rule::exists('subjects', 'id')->where('school_id', $this->user()->school_id)],
             'title' => ['required', 'string', 'max:255'], 'instructions' => ['nullable', 'string'],
             'duration_minutes' => ['required', 'integer', 'min:1', 'max:480'], 'starts_at' => ['required', 'date'],
             'ends_at' => ['required', 'date', 'after:starts_at'], 'pass_mark' => ['required', 'numeric', 'min:0', 'max:100'],
             'randomize_questions' => ['boolean'], 'randomize_options' => ['boolean'],
-            'school_class_ids' => ['required', 'array', 'min:1'], 'school_class_ids.*' => ['integer', 'exists:school_classes,id'],
+            'school_class_ids' => ['required', 'array', 'min:1'],
+            'school_class_ids.*' => ['integer', Rule::exists('school_classes', 'id')->where('school_id', $this->user()->school_id)],
         ]);
         $this->ensureOwnedIds([$data['term_id']], 'terms');
         $this->ensureOwnedIds([$data['subject_id']], 'subjects');
@@ -166,12 +169,13 @@ class CbtExamController extends Controller
         $hasInProgressAttempts = $cbtExam->attempts()->where('status', 'in_progress')->exists();
 
         $data = $request->validate([
-            'term_id' => ['sometimes', 'integer', 'exists:terms,id'], 'subject_id' => ['sometimes', 'integer', 'exists:subjects,id'],
+            'term_id' => ['sometimes', 'integer', Rule::exists('terms', 'id')->where('school_id', $this->user()->school_id)],
+            'subject_id' => ['sometimes', 'integer', Rule::exists('subjects', 'id')->where('school_id', $this->user()->school_id)],
             'title' => ['sometimes', 'string', 'max:255'], 'instructions' => ['nullable', 'string'],
             'duration_minutes' => ['sometimes', 'integer', 'min:1', 'max:480'], 'starts_at' => ['sometimes', 'date'], 'ends_at' => ['sometimes', 'date'],
             'pass_mark' => ['sometimes', 'numeric', 'min:0', 'max:100'], 'randomize_questions' => ['sometimes', 'boolean'],
             'randomize_options' => ['sometimes', 'boolean'], 'school_class_ids' => ['sometimes', 'array', 'min:1'],
-            'school_class_ids.*' => ['integer', 'exists:school_classes,id'],
+            'school_class_ids.*' => ['integer', Rule::exists('school_classes', 'id')->where('school_id', $this->user()->school_id)],
         ]);
         if ($hasAttempts) {
             $allowedAfterAttempt = ['title', 'instructions', 'starts_at', 'ends_at'];

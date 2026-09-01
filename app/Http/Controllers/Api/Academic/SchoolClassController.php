@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Academic\SchoolClassRequest;
 use App\Models\SchoolClass;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class SchoolClassController extends Controller
 {
@@ -52,7 +53,7 @@ class SchoolClassController extends Controller
     {
         $request->validate([
             'subject_ids' => ['required', 'array'],
-            'subject_ids.*' => ['integer', 'exists:subjects,id'],
+            'subject_ids.*' => ['integer', Rule::exists('subjects', 'id')->where('school_id', $schoolClass->school_id)],
         ]);
 
         $schoolClass->subjects()->sync($request->input('subject_ids'));
