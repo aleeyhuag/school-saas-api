@@ -127,11 +127,20 @@ class StaffController extends Controller
     }
 
     /**
-     * Grants an ADDITIONAL role to an existing staff member — this is
-     * what lets one person be BOTH a class_teacher and a
-     * subject_teacher (or pick up any other role) without re-inviting
-     * them. Same senior-role restriction as InviteUserController:
-     * only a Proprietor can grant principal/bursar/exam_officer.
+     * Grants an ADDITIONAL role to an existing staff member — e.g.
+     * picking up 'teacher' alongside an existing senior role, without
+     * re-inviting them.
+     *
+     * Two rules enforced here:
+     *  1. Only a Proprietor or Principal can grant a senior role
+     *     (principal/bursar/exam_officer) — same peers who can already
+     *     manage billing and staff elsewhere in the app.
+     *  2. Senior roles don't stack with EACH OTHER. Someone who's
+     *     already a Principal, Bursar, or Exam Officer can only ever
+     *     pick up 'teacher' as a second role — never a second senior
+     *     role (a Principal can't also become Bursar, etc.). The
+     *     Proprietor is exempt from this — in a small school it's
+     *     common for the owner to also directly handle the books.
      */
     public function addRole(User $user)
     {
@@ -140,14 +149,20 @@ class StaffController extends Controller
         }
 
         $validated = request()->validate([
-            'role' => ['required', 'string', 'in:principal,bursar,exam_officer,class_teacher,subject_teacher,parent'],
+            'role' => ['required', 'string', 'in:proprietor,principal,bursar,exam_officer,teacher,parent'],
         ]);
 
         $seniorRoles = ['principal', 'bursar', 'exam_officer'];
 
-        if (in_array($validated['role'], $seniorRoles) && ! Auth::user()->hasRole('proprietor')) {
+        if (in_array($validated['role'], $seniorRoles) && ! Auth::user()->hasAnyRole(['proprietor', 'principal'])) {
             throw ValidationException::withMessages([
-                'role' => ['Only the school proprietor can grant a principal, bursar, or exam officer role.'],
+                'role' => ['Only the proprietor or principal can grant a principal, bursar, or exam officer role.'],
+            ]);
+        }
+
+        if (in_array($validated['role'], $seniorRoles) && $user->hasAnyRole($seniorRoles)) {
+            throw ValidationException::withMessages([
+                'role' => ['This person already holds a senior role (principal, bursar, or exam officer). Only one senior role per person — they can still be given the teacher role alongside it.'],
             ]);
         }
 

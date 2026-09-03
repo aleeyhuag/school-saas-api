@@ -21,6 +21,7 @@ class RegisterSchoolRequest extends FormRequest
             'school_address' => ['nullable', 'string', 'max:255'],
 
             // Proprietor/admin account details (the first user for this school)
+            'admin_role' => ['nullable', 'string', 'in:proprietor,principal'],
             'admin_name' => ['required', 'string', 'max:255'],
             'admin_email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'admin_password' => ['required', 'string', 'min:8', 'confirmed'],

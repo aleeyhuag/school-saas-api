@@ -27,7 +27,7 @@ Route::middleware(['auth:sanctum', 'school.active'])->group(function () {
     Route::get('exports/{export}', [ExportController::class, 'show']);
 });
 
-Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor'])->group(function () {
+Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal'])->group(function () {
     Route::post('exports/school-backup', [ExportController::class, 'requestSchoolBackup']);
 });
 

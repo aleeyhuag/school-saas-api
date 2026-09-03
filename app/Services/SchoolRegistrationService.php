@@ -11,7 +11,15 @@ use Illuminate\Support\Facades\Password;
 use App\Notifications\AccountSetupNotification;
 
 /**
- * Creates a school + its first Proprietor account. Shared by:
+ * Creates a school + its first admin account — Proprietor or
+ * Principal, whichever the person actually registering turned out to
+ * be. Most first contact with a new school is the Principal, not
+ * necessarily an owner who's ever met in person, so this doesn't
+ * assume Proprietor by default anymore; it's just the fallback when
+ * no explicit choice is given (keeps this backward compatible for any
+ * caller that doesn't pass 'admin_role' yet).
+ *
+ * Shared by:
  *  - RegisterSchoolController (public, self-serve — the school owner
  *    supplies their own password and gets a token back immediately).
  *  - PlatformSchoolController::store (super_admin-created — used when
@@ -39,6 +47,7 @@ class SchoolRegistrationService
             $this->subscriptionService->startTrial($school);
 
             $plainPassword = $data['admin_password'] ?? Str::random(10);
+            $adminRole = $data['admin_role'] ?? 'proprietor';
 
             $user = User::create([
                 'school_id' => $school->id,
@@ -48,7 +57,7 @@ class SchoolRegistrationService
                 'status' => 'approved',
             ]);
 
-            $user->assignRole('proprietor');
+            $user->assignRole($adminRole);
             $user->accessibleSchools()->attach($school->id);
 
             DefaultGradeBoundarySeeder::seedFor($school->id);

@@ -18,11 +18,11 @@ class InviteUserController extends Controller
     {
         $validated = $request->validated();
         $inviter = Auth::user();
-        $seniorRoles = ['principal', 'bursar', 'exam_officer'];
+        $seniorRoles = ['proprietor', 'principal', 'bursar', 'exam_officer'];
 
-        if (in_array($validated['role'], $seniorRoles) && ! $inviter->hasRole('proprietor')) {
+        if (in_array($validated['role'], $seniorRoles) && ! $inviter->hasAnyRole(['proprietor', 'principal'])) {
             throw ValidationException::withMessages([
-                'role' => ['Only the school proprietor can appoint a principal, bursar, or exam officer.'],
+                'role' => ['Only the proprietor or principal can appoint a proprietor, principal, bursar, or exam officer.'],
             ]);
         }
 

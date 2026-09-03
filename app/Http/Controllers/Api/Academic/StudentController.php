@@ -225,37 +225,6 @@ class StudentController extends Controller
      * here; those remain under school management, matching what the
      * "My Class" edit modal on the frontend actually sends.
      */
-    public function updateMyClassStudent(Student $student)
-    {
-        $user = Auth::user();
-
-        if ((int) $student->school_id !== (int) $user->school_id) {
-            abort(403, 'This student does not belong to your school.');
-        }
-
-        $isClassTeacher = TeacherAssignment::where('user_id', $user->id)
-            ->where('school_class_id', $student->school_class_id)
-            ->where('is_class_teacher', true)
-            ->exists();
-
-        if (! $isClassTeacher) {
-            abort(403, 'You are not the class teacher for this student.');
-        }
-
-        $validated = request()->validate([
-            'first_name' => ['required', 'string', 'max:255'],
-            'last_name' => ['required', 'string', 'max:255'],
-            'date_of_birth' => ['nullable', 'date'],
-            'gender' => ['nullable', Rule::in(['male', 'female'])],
-            'guardian_name' => ['nullable', 'string', 'max:255'],
-            'guardian_phone' => ['nullable', 'string', 'max:30'],
-        ]);
-
-        $student->update($validated);
-
-        return $student->load('schoolClass');
-    }
-
     /**
      * Stage 53 — upload or replace a student's ID card photo. Stored
      * on the private disk (see MediaController::studentPhoto()'s

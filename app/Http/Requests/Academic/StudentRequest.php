@@ -16,13 +16,17 @@ class StudentRequest extends FormRequest
     {
         // Ignore the current student's own admission number when updating
         $studentId = $this->route('student')?->id;
+        $autoGenerate = (bool) $this->user()->school->auto_generate_admission_numbers;
 
         return [
             'school_class_id' => ['required', 'integer', Rule::exists('school_classes', 'id')->where('school_id', $this->user()->school_id)],
-            'admission_number' => [
-                'required', 'string', 'max:50',
-                Rule::unique('students', 'admission_number')->ignore($studentId),
-            ],
+            'admission_number' => $autoGenerate
+                // Auto-generating schools never accept one from the
+                // client at all — StudentController assigns it via
+                // School::nextAdmissionNumber() instead, so this can't
+                // be spoofed to collide with or skip the sequence.
+                ? ['prohibited']
+                : ['required', 'string', 'max:50', Rule::unique('students', 'admission_number')->ignore($studentId)],
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'date_of_birth' => ['nullable', 'date'],

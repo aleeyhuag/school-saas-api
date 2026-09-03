@@ -19,6 +19,7 @@ class CreateSchoolRequest extends FormRequest
             'school_phone' => ['nullable', 'string', 'max:30'],
             'school_address' => ['nullable', 'string', 'max:255'],
 
+            'admin_role' => ['nullable', 'string', 'in:proprietor,principal'],
             'admin_name' => ['required', 'string', 'max:255'],
             'admin_email' => ['required', 'email', 'max:255', 'unique:users,email'],
             // No admin_password field — a temporary one is always

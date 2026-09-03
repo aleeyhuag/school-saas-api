@@ -110,11 +110,13 @@ class PlatformSchoolController extends Controller
     public function store(CreateSchoolRequest $request, SchoolRegistrationService $registrationService)
     {
         [$school, $user, $temporaryPassword] = $registrationService->register($request->validated());
+        $role = $request->validated('admin_role') ?? 'proprietor';
 
         return response()->json([
-            'message' => 'School created. Share the temporary password with the proprietor securely.',
+            'message' => "School created. Share the temporary password with the {$role} securely.",
             'school' => $school,
             'proprietor' => $user->only(['id', 'name', 'email']),
+            'admin_role' => $role,
             'temporary_password' => $temporaryPassword,
         ], 201);
     }

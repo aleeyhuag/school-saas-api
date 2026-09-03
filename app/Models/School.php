@@ -13,11 +13,33 @@ class School extends Model
     protected $fillable = [
         'name', 'slug', 'email', 'phone', 'address', 'logo_path', 'principal_signature_path',
         'is_active', 'school_group_id', 'deactivation_reason', 'payment_reference_code',
+        'auto_generate_admission_numbers', 'admission_number_sequence',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'auto_generate_admission_numbers' => 'boolean',
     ];
+
+    /**
+     * Atomically claims the next admission number for this school and
+     * persists the incremented counter in the same query — two
+     * students being added at the same moment can never be handed the
+     * same number. Format is a short letters-only prefix derived from
+     * the school's name plus a zero-padded sequence, e.g. "GRE-0001".
+     * Only called when the school has opted into auto-generation (see
+     * StudentRequest) — schools with their own existing numbering
+     * scheme keep typing admission numbers in manually, unaffected.
+     */
+    public function nextAdmissionNumber(): string
+    {
+        $this->increment('admission_number_sequence');
+
+        $prefix = strtoupper(substr(preg_replace('/[^A-Za-z]/', '', $this->name), 0, 3));
+        $prefix = $prefix !== '' ? $prefix : 'STU';
+
+        return sprintf('%s-%04d', $prefix, $this->admission_number_sequence);
+    }
 
     public function subscription(): HasOne
     {

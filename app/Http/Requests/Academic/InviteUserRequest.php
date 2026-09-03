@@ -21,7 +21,7 @@ class InviteUserRequest extends FormRequest
             'role' => [
                 'required',
                 Rule::in([
-                    'principal', 'bursar', 'exam_officer',
+                    'proprietor', 'principal', 'bursar', 'exam_officer',
                     'teacher', 'parent',
                     // 'class_teacher' and 'subject_teacher' were
                     // unified into 'teacher' — see the
