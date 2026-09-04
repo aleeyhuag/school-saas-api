@@ -18,7 +18,7 @@ require __DIR__.'/api-notifications.php';
 require __DIR__.'/api-announcements.php';
 require __DIR__.'/api-branches.php';
 require __DIR__.'/api-billing.php';
-require __DIR__.'/api-unsubscribe.php';
+// require __DIR__.'/api-unsubscribe.php';
 require __DIR__.'/api-enrollment.php';
 require __DIR__.'/api-media.php';
 require __DIR__.'/api-governance.php';
