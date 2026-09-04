@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\Payment;
 use App\Models\PaymentReview;
 use App\Models\Plan;
+use App\Models\ReferralCommission;
+use App\Models\ReferralSetting;
 use App\Models\School;
 use App\Models\Subscription;
 use App\Notifications\PaymentConfirmedNotification;
@@ -180,6 +182,50 @@ class SubscriptionService
             $school = $lockedPayment->school;
             if (! $school->is_active) {
                 $school->update(['is_active' => true, 'deactivation_reason' => null]);
+            }
+
+            // Referral commission — only if this school was registered
+            // through a referral partner's code (School::referred_by_partner_id,
+            // set at registration — see SchoolRegistrationService).
+            //
+            // Two tiers, both editable from Super Admin billing (see
+            // ReferralSetting): 15% on every payment — monthly or
+            // termly, the cadence doesn't matter — for the school's
+            // first 12 months as a paying customer, then 5% for the
+            // next 12, then nothing. "First 12 months" is measured
+            // from referral_commission_start_at, which THIS payment
+            // sets if it's the first one — a school that sat in trial
+            // for weeks before paying doesn't burn into that window
+            // before it's even started.
+            //
+            // Rate is snapshotted onto the commission row at the
+            // moment of THIS payment, not read live later, so a
+            // future rate change in Super Admin billing never
+            // rewrites a commission that was already earned.
+            if ($school->referred_by_partner_id) {
+                $settings = ReferralSetting::current();
+
+                if (! $school->referral_commission_start_at) {
+                    $school->update(['referral_commission_start_at' => now()]);
+                }
+
+                $monthsIn = $school->referral_commission_start_at->diffInMonths(now());
+                $rate = match (true) {
+                    $monthsIn < 12 => (float) $settings->year_one_percentage,
+                    $monthsIn < 24 => (float) $settings->year_two_percentage,
+                    default => 0.0,
+                };
+
+                if ($settings->enabled && $rate > 0) {
+                    ReferralCommission::create([
+                        'referral_partner_id' => $school->referred_by_partner_id,
+                        'school_id' => $school->id,
+                        'payment_id' => $lockedPayment->id,
+                        'amount_kobo' => (int) round($lockedPayment->amount_kobo * $rate / 100),
+                        'rate_percentage_at_time' => $rate,
+                        'status' => 'pending',
+                    ]);
+                }
             }
 
             PaymentReview::create([

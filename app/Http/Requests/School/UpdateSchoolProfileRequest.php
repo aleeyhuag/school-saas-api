@@ -20,6 +20,7 @@ class UpdateSchoolProfileRequest extends FormRequest
             'address' => ['nullable', 'string', 'max:255'],
             'logo' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:2048'], // 2MB
             'auto_generate_admission_numbers' => ['nullable', 'boolean'],
+            'self_enrollment_enabled' => ['nullable', 'boolean'],
         ];
     }
 }

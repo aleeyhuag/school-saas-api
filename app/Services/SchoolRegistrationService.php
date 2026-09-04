@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\School;
+use App\Models\ReferralPartner;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -34,6 +35,16 @@ class SchoolRegistrationService
     public function register(array $data): array
     {
         return DB::transaction(function () use ($data) {
+            $referralPartner = null;
+            if (! empty($data['referral_code'])) {
+                $referralPartner = ReferralPartner::where('referral_code', strtoupper(trim($data['referral_code'])))
+                    ->where('status', 'active')
+                    ->first();
+                // An unrecognized or expired code is never a reason to
+                // block someone from registering their school — it
+                // just means no commission gets attributed.
+            }
+
             $school = School::create([
                 'name' => $data['school_name'],
                 'slug' => Str::slug($data['school_name']) . '-' . Str::random(5),
@@ -42,6 +53,7 @@ class SchoolRegistrationService
                 'address' => $data['school_address'] ?? null,
                 'is_active' => true,
                 'payment_reference_code' => 'SCH-'.Str::upper(Str::random(6)),
+                'referred_by_partner_id' => $referralPartner?->id,
             ]);
 
             $this->subscriptionService->startTrial($school);

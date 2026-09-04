@@ -14,11 +14,14 @@ class School extends Model
         'name', 'slug', 'email', 'phone', 'address', 'logo_path', 'principal_signature_path',
         'is_active', 'school_group_id', 'deactivation_reason', 'payment_reference_code',
         'auto_generate_admission_numbers', 'admission_number_sequence',
+        'self_enrollment_enabled', 'referred_by_partner_id', 'referral_commission_start_at',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'auto_generate_admission_numbers' => 'boolean',
+        'self_enrollment_enabled' => 'boolean',
+        'referral_commission_start_at' => 'datetime',
     ];
 
     /**
@@ -103,6 +106,11 @@ class School extends Model
     public function users(): HasMany
     {
         return $this->hasMany(User::class);
+    }
+
+    public function referralPartner(): BelongsTo
+    {
+        return $this->belongsTo(ReferralPartner::class, 'referred_by_partner_id');
     }
 
     public function academicSessions(): HasMany

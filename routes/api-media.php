@@ -26,3 +26,6 @@ Route::get('media/payment-proofs/{payment}', [MediaController::class, 'paymentPr
 
 Route::get('media/student-photos/{student}', [MediaController::class, 'studentPhoto'])
     ->name('media.student-photo');
+
+Route::get('media/enrollment-proofs/{enrollmentApplication}', [MediaController::class, 'enrollmentProof'])
+    ->name('media.enrollment-proof');
