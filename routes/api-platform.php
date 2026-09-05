@@ -45,9 +45,9 @@ Route::middleware(['auth:sanctum', 'role:super_admin'])->prefix('platform')->gro
 
     Route::get('referral-partners', [PlatformReferralController::class, 'index']);
     Route::post('referral-partners', [PlatformReferralController::class, 'store']);
-    Route::get('referral-partners/{referralPartner}', [PlatformReferralController::class, 'show']);
-    Route::put('referral-partners/{referralPartner}', [PlatformReferralController::class, 'update']);
-    Route::post('referral-commissions/{referralCommission}/mark-paid', [PlatformReferralController::class, 'markCommissionPaid']);
+    Route::get('referral-partners/{referralPartner}', [PlatformReferralController::class, 'show'])->whereNumber('referralPartner');
+    Route::put('referral-partners/{referralPartner}', [PlatformReferralController::class, 'update'])->whereNumber('referralPartner');
+    Route::post('referral-commissions/{referralCommission}/mark-paid', [PlatformReferralController::class, 'markCommissionPaid'])->whereNumber('referralCommission');
     Route::get('referral-settings', [PlatformReferralController::class, 'getSettings']);
     Route::put('referral-settings', [PlatformReferralController::class, 'updateSettings']);
 });
