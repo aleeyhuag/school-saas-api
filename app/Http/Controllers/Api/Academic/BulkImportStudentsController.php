@@ -7,7 +7,7 @@ use App\Models\SchoolClass;
 use App\Models\Student;
 use App\Services\StudentEnrollmentService;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Password;
+use App\Services\AccountActionTokenService;
 use App\Notifications\AccountSetupNotification;
 
 /**
@@ -102,7 +102,7 @@ class BulkImportStudentsController extends Controller
                 ], $school);
 
                 if ($providedEmail) {
-                    $token = Password::broker()->createToken($student->user);
+                    $token = app(AccountActionTokenService::class)->issue($student->user, 'account_setup');
                     $student->user->notify(new AccountSetupNotification($token, $school->name));
                 }
 

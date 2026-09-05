@@ -20,7 +20,7 @@ class UpdateProfileRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'email' => [
                 'required', 'email', 'max:255',
-                Rule::unique('users', 'email')->ignore($user?->id),
+                Rule::unique('users', 'email')->where(fn ($q) => $q->where('school_id', $user?->school_id))->ignore($user?->id),
             ],
             'phone' => ['nullable', 'string', 'max:30'],
         ];

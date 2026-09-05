@@ -25,4 +25,5 @@ Schedule::command('billing:process-lifecycle')->dailyAt('06:00');
 // --stop-when-empty exits as soon as the queue is drained rather than
 // idling, and --max-time caps a single run well under Render Cron
 // Job's execution ceiling.
+Schedule::command('marketing:release-batch --batch=10')->everyFiveMinutes();
 Schedule::command('queue:work --stop-when-empty --max-time=250 --tries=1')->everyFiveMinutes();

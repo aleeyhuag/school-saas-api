@@ -21,7 +21,7 @@ class CreateSchoolRequest extends FormRequest
 
             'admin_role' => ['nullable', 'string', 'in:proprietor,principal'],
             'admin_name' => ['required', 'string', 'max:255'],
-            'admin_email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'admin_email' => ['required', 'email', 'max:255'],
             // No admin_password field — a temporary one is always
             // generated for admin-created schools, same as inviting
             // staff, since you're creating this on the school's

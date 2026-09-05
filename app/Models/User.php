@@ -16,6 +16,15 @@ use Spatie\Permission\Traits\HasRoles; // <-- added: gives $user->assignRole(), 
 
 class User extends Authenticatable
 {
+    protected static function booted(): void
+    {
+        static::saving(function (User $user) {
+            if ($user->email) {
+                $user->email = strtolower(trim($user->email));
+            }
+        });
+    }
+
     use HasApiTokens, HasFactory, Notifiable, HasRoles; // <-- added HasApiTokens + HasRoles
 
     protected $fillable = [

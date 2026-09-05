@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Password;
+use App\Services\AccountActionTokenService;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Storage;
 use App\Notifications\AccountSetupNotification;
@@ -76,7 +76,7 @@ class StudentController extends Controller
 
         if ($providedEmail) {
             try {
-                $token = Password::broker()->createToken($student->user);
+                $token = app(AccountActionTokenService::class)->issue($student->user, 'account_setup');
                 $student->user->notify(new AccountSetupNotification($token, Auth::user()->school->name));
             } catch (\Throwable $e) {
                 report($e);

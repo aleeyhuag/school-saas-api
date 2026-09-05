@@ -8,7 +8,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Password;
+use App\Services\AccountActionTokenService;
 use App\Notifications\AccountSetupNotification;
 
 /**
@@ -30,7 +30,7 @@ use App\Notifications\AccountSetupNotification;
  */
 class SchoolRegistrationService
 {
-    public function __construct(protected SubscriptionService $subscriptionService) {}
+    public function __construct(protected SubscriptionService $subscriptionService, protected AccountActionTokenService $accountActionTokens) {}
 
     public function register(array $data): array
     {
@@ -79,7 +79,7 @@ class SchoolRegistrationService
             // password and gets a token back immediately, no email
             // needed for that path.
             if (! isset($data['admin_password'])) {
-                $token = Password::broker()->createToken($user);
+                $token = $this->accountActionTokens->issue($user, 'account_setup');
                 $user->notify(new AccountSetupNotification($token, $school->name));
             }
 

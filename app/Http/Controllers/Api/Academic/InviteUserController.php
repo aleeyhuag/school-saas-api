@@ -8,13 +8,13 @@ use App\Models\User;
 use App\Notifications\AccountSetupNotification;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Password;
+use App\Services\AccountActionTokenService;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class InviteUserController extends Controller
 {
-    public function __invoke(InviteUserRequest $request)
+    public function __invoke(InviteUserRequest $request, AccountActionTokenService $accountActionTokens)
     {
         $validated = $request->validated();
         $inviter = Auth::user();
@@ -38,7 +38,7 @@ class InviteUserController extends Controller
         $user->assignRole($validated['role']);
 
         try {
-            $token = Password::broker()->createToken($user);
+            $token = $accountActionTokens->issue($user, 'account_setup');
             $user->notify(new AccountSetupNotification($token, $inviter->school->name));
         } catch (\Throwable $e) {
             // Never put the temporary password in a successful API response.

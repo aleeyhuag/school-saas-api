@@ -7,7 +7,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Password;
+use App\Services\AccountActionTokenService;
 use App\Notifications\AccountSetupNotification;
 use Illuminate\Validation\ValidationException;
 
@@ -111,7 +111,7 @@ class StaffController extends Controller
         $user->update(['password' => Hash::make($temporaryPassword)]);
 
         try {
-            $token = Password::broker()->createToken($user);
+            $token = app(AccountActionTokenService::class)->issue($user, 'account_setup');
             $user->notify(new AccountSetupNotification($token, Auth::user()->school->name));
         } catch (\Throwable $e) {
             report($e);

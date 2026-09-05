@@ -4,6 +4,7 @@ namespace App\Http\Requests\Academic;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use App\Models\User;
 
 class InviteUserRequest extends FormRequest
 {
@@ -16,7 +17,7 @@ class InviteUserRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->where(fn ($q) => $q->where('school_id', $this->user()->school_id))],
             'phone' => ['nullable', 'string', 'max:30'],
             'role' => [
                 'required',

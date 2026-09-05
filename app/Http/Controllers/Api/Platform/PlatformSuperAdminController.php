@@ -7,6 +7,8 @@ use App\Http\Requests\Platform\CreateSuperAdminRequest;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Manage super_admin accounts — the platform owner's own team.
@@ -27,7 +29,7 @@ class PlatformSuperAdminController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'phone', 'status', 'created_at']);
 
-        return response()->json($superAdmins);
+        return response()->json(['admins' => $superAdmins, 'current_user_id' => request()->user()->id]);
     }
 
     /**
@@ -39,6 +41,60 @@ class PlatformSuperAdminController extends Controller
      * change it after their first login via the normal account
      * settings page.
      */
+    public function toggleStatus(User $user)
+    {
+        $this->assertSuperAdmin($user);
+        $actor = request()->user();
+        if ($user->is($actor)) {
+            throw ValidationException::withMessages(['user' => ['You cannot deactivate your own Super Admin account.']]);
+        }
+
+        if ($user->status === 'disabled') {
+            $user->update(['status' => 'approved']);
+            return response()->json(['message' => 'Super Admin reactivated.', 'status' => 'approved']);
+        }
+
+        DB::transaction(function () use ($user) {
+            $activeAdmins = User::whereHas('roles', fn ($q) => $q->where('name', 'super_admin'))
+                ->where('status', '!=', 'disabled')->lockForUpdate()->count();
+            if ($activeAdmins <= 1) {
+                throw ValidationException::withMessages(['user' => ['The last active Super Admin cannot be deactivated.']]);
+            }
+            $user->update(['status' => 'disabled']);
+            $user->tokens()->delete();
+        });
+        return response()->json(['message' => 'Super Admin deactivated and active sessions revoked.', 'status' => 'disabled']);
+    }
+
+    public function destroy(User $user)
+    {
+        $this->assertSuperAdmin($user);
+        if ($user->is(request()->user())) {
+            throw ValidationException::withMessages(['user' => ['You cannot delete your own Super Admin account.']]);
+        }
+        $validated = request()->validate(['confirm_email' => ['required', 'email']]);
+        if (strcasecmp($validated['confirm_email'], $user->email) !== 0) {
+            throw ValidationException::withMessages(['confirm_email' => ['The confirmation email does not match this Super Admin.']]);
+        }
+
+        DB::transaction(function () use ($user) {
+            $admins = User::whereHas('roles', fn ($q) => $q->where('name', 'super_admin'))
+                ->lockForUpdate()->get(['id']);
+            if ($admins->count() <= 1) {
+                throw ValidationException::withMessages(['user' => ['The last remaining Super Admin cannot be deleted.']]);
+            }
+            $user->tokens()->delete();
+            $user->syncRoles([]);
+            $user->delete();
+        });
+        return response()->json(['message' => 'Super Admin deleted.']);
+    }
+
+    private function assertSuperAdmin(User $user): void
+    {
+        abort_unless($user->hasRole('super_admin'), 404);
+    }
+
     public function store(CreateSuperAdminRequest $request)
     {
         $plainPassword = Str::random(12);
@@ -60,3 +116,4 @@ class PlatformSuperAdminController extends Controller
         ], 201);
     }
 }
+

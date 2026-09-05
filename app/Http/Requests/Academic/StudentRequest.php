@@ -36,7 +36,7 @@ class StudentRequest extends FormRequest
             // Only used on create — a real email for the student's
             // auto-created login. If omitted, a placeholder is
             // generated from the admission number instead.
-            'login_email' => ['nullable', 'email', 'max:255', 'unique:users,email'],
+            'login_email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')->where(fn ($q) => $q->where('school_id', $this->user()->school_id))],
         ];
     }
 }

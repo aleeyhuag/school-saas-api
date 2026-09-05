@@ -1,0 +1,3 @@
+<?php
+use Illuminate\Database\Migrations\Migration; use Illuminate\Database\Schema\Blueprint; use Illuminate\Support\Facades\Schema;
+return new class extends Migration {public function up():void{Schema::create('email_campaigns',function(Blueprint $t){$t->id();$t->string('name');$t->string('subject');$t->longText('html_body');$t->string('audience')->default('both');$t->string('status')->default('draft');$t->unsignedInteger('total_count')->default(0);$t->unsignedInteger('sent_count')->default(0);$t->unsignedInteger('failed_count')->default(0);$t->timestamp('started_at')->nullable();$t->timestamp('completed_at')->nullable();$t->timestamp('cancelled_at')->nullable();$t->timestamps();});}public function down():void{Schema::dropIfExists('email_campaigns');}};

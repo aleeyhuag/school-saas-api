@@ -15,7 +15,7 @@ class CreateSuperAdminRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'email' => ['required', 'email', 'max:255', 'max:255', function ($attribute, $value, $fail) { if (\App\Models\User::where('email', strtolower(trim($value)))->whereHas('roles', fn ($q) => $q->where('name', 'super_admin'))->exists()) $fail('A Super Admin with this email already exists.'); }],
             // No password field — a temporary one is generated and shown
             // once, same pattern as onboarding a school's proprietor —
             // see PlatformSchoolController::store().

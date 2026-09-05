@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -52,6 +53,7 @@ class EnrollmentApplicationController extends Controller
 
         $school = Auth::user()->school;
 
+        return DB::transaction(function () use ($enrollmentApplication, $enrollmentService) {
         [$student, $studentTempPassword] = $enrollmentService->enroll([
             'first_name' => $enrollmentApplication->first_name,
             'last_name' => $enrollmentApplication->last_name,
@@ -66,7 +68,7 @@ class EnrollmentApplicationController extends Controller
         // account this app creates on someone else's behalf.
         $guardianTempPassword = Str::random(12);
         $guardianUser = \App\Models\User::firstOrCreate(
-            ['email' => strtolower(trim($enrollmentApplication->guardian_email))],
+            ['school_id' => $school->id, 'email' => strtolower(trim($enrollmentApplication->guardian_email))],
             [
                 'school_id' => $school->id,
                 'name' => $enrollmentApplication->guardian_name,
@@ -94,6 +96,7 @@ class EnrollmentApplicationController extends Controller
             'guardian_email' => $guardianUser->email,
             'guardian_temporary_password' => $guardianUser->wasRecentlyCreated ? $guardianTempPassword : null,
         ]);
+        });
     }
 
     public function reject(EnrollmentApplication $enrollmentApplication)
