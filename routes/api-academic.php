@@ -8,21 +8,8 @@ use App\Http\Controllers\Api\Academic\StaffController;
 use App\Http\Controllers\Api\Academic\StudentController;
 use App\Http\Controllers\Api\Academic\StudentPromotionController;
 use App\Http\Controllers\Api\Academic\SubjectController;
+use App\Http\Middleware\EnsureTeacherStudentScope;
 use Illuminate\Support\Facades\Route;
-
-/*
-|--------------------------------------------------------------------------
-| API Routes — Academic Structure
-|--------------------------------------------------------------------------
-|
-| This requires Spatie's role middleware alias to be registered. In
-| bootstrap/app.php:
-|
-|   $middleware->alias([
-|       'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
-|       'school.active' => \App\Http\Middleware\EnsureSchoolIsActive::class,
-|   ]);
-*/
 
 Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal'])->group(function () {
     Route::apiResource('classes', SchoolClassController::class)->except(['index', 'show']);
@@ -37,7 +24,7 @@ Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal']
     Route::post('students/bulk-import', BulkImportStudentsController::class);
 
     Route::post('invite-user', InviteUserController::class);
-    Route::get('dashboard-stats', DashboardStatsController::class);
+    Route::get('dashboard-stats', [DashboardStatsController::class, 'show']);
 
     Route::get('staff', [StaffController::class, 'index']);
     Route::post('staff/{user}/toggle-status', [StaffController::class, 'toggleStatus']);
@@ -46,8 +33,6 @@ Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal']
     Route::post('staff/{user}/remove-role', [StaffController::class, 'removeRole']);
 });
 
-// Promotion is a Principal responsibility. Proprietors do not receive
-// the promotion UI or API capability.
 Route::middleware(['auth:sanctum', 'school.active', 'role:principal'])->group(function () {
     Route::get('promotions/options', [StudentPromotionController::class, 'options']);
     Route::get('promotions/students', [StudentPromotionController::class, 'students']);
@@ -55,21 +40,24 @@ Route::middleware(['auth:sanctum', 'school.active', 'role:principal'])->group(fu
     Route::get('promotions/history', [StudentPromotionController::class, 'history']);
 });
 
-// VIEWING classes/subjects/students — needed by Teacher (attendance
-// roster, marksheet's subject list, score entry roster), Bursar (fee
-// structures' class picker, fee payment lookup), and Exam Officer,
-// not just management.
+// Teacher read access is intentionally constrained by assignment.
+// The middleware requires a class filter that belongs to one of the
+// teacher's assignments, preventing school-wide student enumeration.
+Route::middleware(['auth:sanctum', 'school.active', 'role:teacher', EnsureTeacherStudentScope::class])->group(function () {
+    Route::get('students', [StudentController::class, 'index']);
+});
+
 Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal|teacher|bursar|exam_officer'])->group(function () {
     Route::get('classes', [SchoolClassController::class, 'index']);
     Route::get('classes/{schoolClass}', [SchoolClassController::class, 'show']);
     Route::get('subjects', [SubjectController::class, 'index']);
     Route::get('subjects/{subject}', [SubjectController::class, 'show']);
+});
+
+Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal|bursar|exam_officer'])->group(function () {
     Route::get('students', [StudentController::class, 'index']);
 });
 
-// Class Teacher roster — intentionally isolated from the broader
-// academic read group above. The controller also checks the exact
-// teacher_assignment, so changing a URL cannot expose another class.
 Route::middleware(['auth:sanctum', 'school.active', 'role:teacher'])->group(function () {
     Route::get('my-class/students', [StudentController::class, 'myClass']);
     Route::post('my-class/students/{student}/photo', [StudentController::class, 'uploadMyClassPhoto']);

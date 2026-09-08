@@ -5,18 +5,31 @@ namespace App\Http\Controllers\Api\Academic;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Academic\SchoolClassRequest;
 use App\Models\SchoolClass;
+use App\Models\TeacherAssignment;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
 class SchoolClassController extends Controller
 {
     /**
-     * List all classes for the logged-in user's school.
-     * (BelongsToSchool trait auto-scopes this — no manual filtering needed.)
+     * List classes. Teachers only receive classes where they have an
+     * assignment; management roles retain the full school list.
      */
     public function index()
     {
-        return SchoolClass::with('subjects')->orderBy('level')->get();
+        $query = SchoolClass::with('subjects')->orderBy('level');
+
+        if (Auth::user()->hasRole('teacher')) {
+            $classIds = TeacherAssignment::where('school_id', Auth::user()->school_id)
+                ->where('user_id', Auth::user()->id)
+                ->pluck('school_class_id')
+                ->unique();
+
+            $query->whereIn('id', $classIds);
+        }
+
+        return $query->get();
     }
 
     public function store(SchoolClassRequest $request)
@@ -28,6 +41,17 @@ class SchoolClassController extends Controller
 
     public function show(SchoolClass $schoolClass)
     {
+        if (Auth::user()->hasRole('teacher')) {
+            abort_unless(
+                TeacherAssignment::where('school_id', Auth::user()->school_id)
+                    ->where('user_id', Auth::user()->id)
+                    ->where('school_class_id', $schoolClass->id)
+                    ->exists(),
+                403,
+                'You are not assigned to this class.'
+            );
+        }
+
         return $schoolClass->load('subjects', 'students');
     }
 
@@ -45,10 +69,6 @@ class SchoolClassController extends Controller
         return response()->json(['message' => 'Class deleted.']);
     }
 
-    /**
-     * Attach one or more subjects to this class (replaces the current list).
-     * Body: { "subject_ids": [1, 2, 3] }
-     */
     public function syncSubjects(Request $request, SchoolClass $schoolClass)
     {
         $request->validate([
