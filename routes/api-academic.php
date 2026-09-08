@@ -24,7 +24,10 @@ Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal']
     Route::post('students/bulk-import', BulkImportStudentsController::class);
 
     Route::post('invite-user', InviteUserController::class);
-    Route::get('dashboard-stats', [DashboardStatsController::class, 'show']);
+    // DashboardStatsController is an invokable controller; calling a
+    // nonexistent show() method caused the dashboard request to fail and
+    // the frontend to fall back to zero students/staff.
+    Route::get('dashboard-stats', DashboardStatsController::class);
 
     Route::get('staff', [StaffController::class, 'index']);
     Route::post('staff/{user}/toggle-status', [StaffController::class, 'toggleStatus']);

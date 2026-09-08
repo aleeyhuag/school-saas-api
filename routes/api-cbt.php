@@ -1,14 +1,17 @@
 <?php
 
 use App\Http\Controllers\Api\Cbt\CbtExamController;
+use App\Http\Controllers\Api\Cbt\CbtCurrentExamIndexController;
 use App\Http\Controllers\Api\Cbt\CbtQuestionBankController;
 use App\Http\Controllers\Api\Cbt\CbtStudentController;
+use App\Http\Middleware\EnsureCurrentAcademicContext;
+use App\Http\Middleware\EnsureCurrentCbtExamContext;
 use Illuminate\Support\Facades\Route;
 
 // CBT management belongs to Exam Officers and Teachers. Proprietors and
 // Principals intentionally have no CBT API access.
-Route::middleware(['auth:sanctum', 'school.active', 'role:exam_officer|teacher'])->prefix('cbt')->group(function () {
-    Route::get('/exams', [CbtExamController::class, 'index']);
+Route::middleware(['auth:sanctum', 'school.active', 'role:exam_officer|teacher', EnsureCurrentAcademicContext::class, EnsureCurrentCbtExamContext::class])->prefix('cbt')->group(function () {
+    Route::get('/exams', CbtCurrentExamIndexController::class);
     Route::post('/exams', [CbtExamController::class, 'store']);
     Route::get('/exams/{cbtExam}', [CbtExamController::class, 'show']);
     Route::put('/exams/{cbtExam}', [CbtExamController::class, 'update']);
@@ -18,7 +21,12 @@ Route::middleware(['auth:sanctum', 'school.active', 'role:exam_officer|teacher']
     Route::post('/exams/{cbtExam}/questions', [CbtExamController::class, 'addQuestion']);
     Route::put('/questions/{cbtQuestion}', [CbtExamController::class, 'updateQuestion']);
     Route::delete('/questions/{cbtQuestion}', [CbtExamController::class, 'deleteQuestion']);
+});
 
+// The question bank is not term-owned; it is subject/assignment-owned. Keep
+// it outside the current-term middleware while preserving its assignment
+// authorization in CbtQuestionBankController.
+Route::middleware(['auth:sanctum', 'school.active', 'role:exam_officer|teacher'])->prefix('cbt')->group(function () {
     Route::get('/question-bank', [CbtQuestionBankController::class, 'index']);
     Route::post('/question-bank', [CbtQuestionBankController::class, 'store']);
     Route::put('/question-bank/{cbtQuestionBank}', [CbtQuestionBankController::class, 'update']);
