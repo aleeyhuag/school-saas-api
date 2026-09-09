@@ -197,7 +197,7 @@ class SkulagAiService
                 'description' => $description,
                 'parameters' => [
                     'type' => 'object',
-                    'properties' => $properties,
+                    'properties' => (object) $properties,
                     'required' => $required,
                     'additionalProperties' => false,
                 ],
