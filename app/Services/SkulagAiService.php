@@ -64,15 +64,29 @@ class SkulagAiService
                 ->post(self::API_URL, $payload);
 
             if ($response->failed()) {
+                $status = $response->status();
+                $body = $response->json();
+                $providerMessage = is_array($body)
+                    ? (string) data_get($body, 'error.message', '')
+                    : '';
+
                 report(new RuntimeException(
-                    'Groq Chat Completions API failed: '.$response->status().' '.$response->body()
+                    'Groq Chat Completions API failed: '.$status.' '.($providerMessage ?: $response->body())
                 ));
 
-                if ($response->status() === 429) {
-                    throw new RuntimeException('Skulag AI is temporarily busy. Please wait a moment and try again.');
+                if ($status === 401 || $status === 403) {
+                    throw new RuntimeException('Skulag AI cannot authenticate with Groq. Please check the GROQ_API_KEY in the API environment and redeploy/restart the service.');
                 }
 
-                throw new RuntimeException('Skulag AI could not complete the request right now. Please try again.');
+                if ($status === 429) {
+                    throw new RuntimeException('Skulag AI is temporarily busy because the Groq rate limit was reached. Please wait a moment and try again.');
+                }
+
+                if ($status === 400) {
+                    throw new RuntimeException('Skulag AI request was rejected by Groq. '.($providerMessage ?: 'Please verify the GROQ_MODEL setting and AI configuration.'));
+                }
+
+                throw new RuntimeException('Skulag AI provider is temporarily unavailable. Please try again shortly.');
             }
 
             $data = $response->json();
