@@ -27,6 +27,7 @@ require __DIR__.'/api-exports.php';
 require __DIR__.'/api-sync.php';
 require __DIR__.'/api-id-cards.php';
 require __DIR__.'/api-cbt.php';
+require __DIR__.'/api-ai.php';
 
 Route::get('/user', function (Request $request) {
     return $request->user();
