@@ -6,27 +6,21 @@ use App\Http\Controllers\Controller;
 use App\Models\ReferralCommission;
 use App\Models\ReferralPartner;
 use App\Models\ReferralSetting;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
-/**
- * Super Admin's referral management: partners, their commission
- * history, and the global commission rate. Attribution itself
- * (which school came from which partner) happens at registration —
- * see SchoolRegistrationService — and commission is earned at
- * SubscriptionService::confirmPayment(); this controller only reads
- * and administers what those two produced.
- */
 class PlatformReferralController extends Controller
 {
     public function index()
     {
-        $partners = ReferralPartner::withCount('referredSchools')
-            ->withSum(['commissions as commission_total_kobo'], 'amount_kobo')
-            ->withSum(['commissions as commission_paid_kobo' => fn ($q) => $q->where('status', 'paid')], 'amount_kobo')
-            ->orderByDesc('created_at')
-            ->get();
-
-        return response()->json($partners);
+        return response()->json(
+            ReferralPartner::withCount('referredSchools')
+                ->withSum(['commissions as commission_total_kobo'], 'amount_kobo')
+                ->withSum(['commissions as commission_paid_kobo' => fn ($q) => $q->where('status', 'paid')], 'amount_kobo')
+                ->orderByDesc('created_at')
+                ->get()
+        );
     }
 
     public function store()
@@ -51,11 +45,14 @@ class PlatformReferralController extends Controller
             'phone' => ['nullable', 'string', 'max:50'],
             'status' => ['sometimes', Rule::in(['active', 'inactive'])],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'bank_name' => ['nullable', 'string', 'max:255'],
+            'account_name' => ['nullable', 'string', 'max:255'],
+            'account_number' => ['nullable', 'string', 'max:50'],
         ]);
 
         $referralPartner->update($validated);
 
-        return response()->json($referralPartner);
+        return response()->json($referralPartner->fresh());
     }
 
     public function show(ReferralPartner $referralPartner)
@@ -74,18 +71,34 @@ class PlatformReferralController extends Controller
         ]);
     }
 
-    /**
-     * Marks one commission as paid out to the partner — a manual
-     * bookkeeping action (Skulag doesn't move money to partners
-     * automatically), same spirit as confirming a school's bank
-     * transfer payment.
-     */
+    public function destroy(ReferralPartner $referralPartner)
+    {
+        $validated = request()->validate([
+            'confirm_name' => ['required', 'string'],
+        ]);
+
+        if ($validated['confirm_name'] !== $referralPartner->name) {
+            throw ValidationException::withMessages([
+                'confirm_name' => ["The name you typed does not match this partner's name exactly."],
+            ]);
+        }
+
+        DB::transaction(function () use ($referralPartner) {
+            // Referred schools survive partner deletion; their attribution
+            // becomes null because referred_by_partner_id is nullOnDelete.
+            // Commission rows are deliberately removed by cascade because
+            // they are records owned by the deleted partner.
+            $referralPartner->tokens()->delete();
+            $referralPartner->delete();
+        });
+
+        return response()->json(['message' => 'Referral partner and partner-owned commission records have been permanently deleted.']);
+    }
+
     public function markCommissionPaid(ReferralCommission $referralCommission)
     {
         abort_if($referralCommission->status === 'paid', 422, 'This commission is already marked paid.');
-
         $referralCommission->update(['status' => 'paid', 'paid_at' => now()]);
-
         return response()->json($referralCommission);
     }
 
@@ -104,7 +117,6 @@ class PlatformReferralController extends Controller
 
         $settings = ReferralSetting::current();
         $settings->update($validated);
-
         return response()->json($settings);
     }
 }

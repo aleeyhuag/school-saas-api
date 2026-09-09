@@ -10,12 +10,6 @@ use App\Http\Controllers\Api\Platform\PlatformReferralController;
 use App\Http\Controllers\Diagnostic\StorageHealthController;
 use Illuminate\Support\Facades\Route;
 
-/*
-|--------------------------------------------------------------------------
-| API Routes — Platform Admin (super_admin only)
-|--------------------------------------------------------------------------
-*/
-
 Route::middleware(['auth:sanctum', 'role:super_admin'])->prefix('platform')->group(function () {
     Route::get('schools', [PlatformSchoolController::class, 'index']);
     Route::post('schools', [PlatformSchoolController::class, 'store']);
@@ -31,22 +25,20 @@ Route::middleware(['auth:sanctum', 'role:super_admin'])->prefix('platform')->gro
     Route::post('super-admins', [PlatformSuperAdminController::class, 'store']);
     Route::post('super-admins/{user}/toggle-status', [PlatformSuperAdminController::class, 'toggleStatus']);
     Route::delete('super-admins/{user}', [PlatformSuperAdminController::class, 'destroy']);
-
     Route::get('leads', [PlatformLeadController::class, 'index']);
     Route::post('leads', [PlatformLeadController::class, 'store']);
     Route::put('leads/{lead}', [PlatformLeadController::class, 'update']);
     Route::delete('leads/{lead}', [PlatformLeadController::class, 'destroy']);
     Route::post('leads/import', [PlatformLeadController::class, 'import']);
-
     Route::get('campaigns', [PlatformCampaignController::class, 'index']);
     Route::post('campaigns', [PlatformCampaignController::class, 'store']);
     Route::get('campaigns/{emailCampaign}', [PlatformCampaignController::class, 'show']);
     Route::post('campaigns/{emailCampaign}/cancel', [PlatformCampaignController::class, 'cancel']);
-
     Route::get('referral-partners', [PlatformReferralController::class, 'index']);
     Route::post('referral-partners', [PlatformReferralController::class, 'store']);
     Route::get('referral-partners/{referralPartner}', [PlatformReferralController::class, 'show'])->whereNumber('referralPartner');
     Route::put('referral-partners/{referralPartner}', [PlatformReferralController::class, 'update'])->whereNumber('referralPartner');
+    Route::delete('referral-partners/{referralPartner}', [PlatformReferralController::class, 'destroy'])->whereNumber('referralPartner');
     Route::post('referral-commissions/{referralCommission}/mark-paid', [PlatformReferralController::class, 'markCommissionPaid'])->whereNumber('referralCommission');
     Route::get('referral-settings', [PlatformReferralController::class, 'getSettings']);
     Route::put('referral-settings', [PlatformReferralController::class, 'updateSettings']);

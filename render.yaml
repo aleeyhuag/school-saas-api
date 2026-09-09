@@ -1,46 +1,14 @@
-# Database is hosted on Supabase, NOT Render's managed Postgres -- do
-# not add a `databases:` block here for it. Get your connection details
-# from Supabase -> Project Settings -> Database -> Connection parameters.
-# Use the "Session pooler" or "Transaction pooler" host (not the direct
-# connection) if you're on a Supabase plan where the direct connection
-# isn't reachable from outside their network -- check your project's
-# connection page for which applies to you.
-#
-# HOTFIX NOTE: the cron service below previously used
-# `envVars: [{fromGroup: school-saas-api}]`, which is invalid -- Render
-# Environment Groups are separate named resources you create yourself,
-# not a way to reference another service's env vars by that service's
-# name. That meant the cron container almost certainly had NO database
-# credentials at all, so every 5-minute tick of `schedule:run` failed
-# silently before it could ever run `billing:process-lifecycle` or
-# drain the export queue. Fixed below by listing the same values
-# explicitly on both services -- deliberately not using a YAML anchor
-# here, since it's not worth the risk of Render's Blueprint parser
-# handling that differently than expected. If you'd rather maintain one
-# copy instead of two, create a real Render "Environment Group" in the
-# dashboard, add both services to it, and replace both envVars lists
-# below with a single `- fromGroup: <your-group-name>` entry.
-
+# Skulag Render blueprint. Keep the scheduler service: campaigns, billing lifecycle,
+# attendance alerts and other scheduled work depend on it.
 services:
   - type: web
     name: school-saas-api
     runtime: docker
-    plan: starter # ~$7/month -- free web-service tier's ephemeral disk would wipe every uploaded logo/payment-proof file on each restart/deploy
+    plan: starter
     dockerfilePath: ./Dockerfile
     healthCheckPath: /up
     disk:
       name: school-saas-uploads
-      # Was mounted at .../storage/app/public only -- student photos
-      # live on the PRIVATE disk (storage/app/private), which that
-      # path doesn't cover at all. Every redeploy resets the
-      # container's ephemeral filesystem, so anything under
-      # storage/app/private was being wiped out on every single
-      # deploy -- including this one. Mounting one level higher, at
-      # storage/app itself, covers both public/ and private/ under
-      # the same persistent volume. storage/framework and
-      # storage/logs deliberately stay off this disk -- cache/session/
-      # log files don't need to survive a deploy, and regenerating
-      # them fresh is normal.
       mountPath: /var/www/html/storage/app
       sizeGB: 1
     envVars:
@@ -51,29 +19,29 @@ services:
       - key: APP_DEBUG
         value: false
       - key: APP_URL
-        sync: false # set to your actual Render URL (or custom domain) after first deploy
+        sync: false
       - key: APP_KEY
-        sync: false # generate locally with `php artisan key:generate --show` and paste it here -- keep it FIXED, don't let the container regenerate it on every boot
+        sync: false
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_HOST
-        sync: false # Supabase project -> Settings -> Database -> connection pooler host
+        sync: false
       - key: DB_PORT
-        sync: false # 5432 for direct/session pooler, 6543 for Supabase's transaction pooler
+        sync: false
       - key: DB_DATABASE
-        value: postgres # Supabase's default database name, unless you renamed it
+        value: postgres
       - key: DB_USERNAME
-        sync: false # Supabase connection username, e.g. postgres.xxxxxxxxxxxx for the pooler
+        sync: false
       - key: DB_PASSWORD
         sync: false
       - key: DB_SSLMODE
-        value: require # Supabase enforces SSL on external connections
+        value: require
       - key: SESSION_DRIVER
         value: database
       - key: QUEUE_CONNECTION
-        value: database # only matters if EXPORT_SYNC_MODE is set to false -- see below
+        value: database
       - key: EXPORT_SYNC_MODE
-        value: "true" # hotfix default -- exports run inline within the request instead of depending on a queue worker. Flip to "false" only once you've verified the cron service below is actually running (see the hotfix README's verification steps), and understand that reintroduces request-timeout risk for very large exports until a real always-on worker is in place.
+        value: "true"
       - key: MAIL_MAILER
         sync: false
       - key: MAIL_HOST
@@ -86,29 +54,22 @@ services:
         sync: false
       - key: MAIL_FROM_ADDRESS
         sync: false
+      - key: RESEND_API_KEY
+        sync: false
       - key: FRONTEND_URL
-        sync: false # your Netlify URL, used for CORS / password-reset links
+        sync: false
       - key: SUPABASE_S3_ACCESS_KEY_ID
-        sync: false # Supabase project -> Settings -> Storage -> S3 Connection -> Access key ID
+        sync: false
       - key: SUPABASE_S3_SECRET_ACCESS_KEY
-        sync: false # same screen -> Secret access key -- treat like a password, never commit it
+        sync: false
       - key: SUPABASE_S3_REGION
         value: eu-west-1
       - key: SUPABASE_S3_ENDPOINT
         value: https://ezwfgpxvfyfhvcguydey.storage.supabase.co/storage/v1/s3
       - key: SUPABASE_S3_PUBLIC_BUCKET
-        value: skulag-images-sign # school logos + principal signatures -- served through MediaController, never exposed directly
+        value: skulag-images-sign
       - key: SUPABASE_S3_PRIVATE_BUCKET
-        value: skulag-photos # student photos -- signed-URL access only, see Student::photo_url
-
-  # Runs Laravel's scheduler every 5 minutes -- this drives
-  # `billing:process-lifecycle` (trial expiry / grace periods, Stage 39)
-  # regardless of export mode, and ALSO drains the export queue via
-  # `queue:work --stop-when-empty` if you ever set EXPORT_SYNC_MODE back
-  # to false. Render bills Cron Jobs only for actual run time, not idle
-  # time. Uses the same Docker image as the web service -- no separate
-  # build to maintain. Needs its own copy of the DB/mail env vars below
-  # (see the hotfix note at the top of this file for why).
+        value: skulag-photos
   - type: cron
     name: school-saas-scheduler
     runtime: docker
@@ -116,10 +77,14 @@ services:
     schedule: "*/5 * * * *"
     dockerCommand: php artisan schedule:run
     envVars:
+      - key: APP_NAME
+        value: Skulag
+      - key: APP_URL
+        sync: false
       - key: APP_ENV
         value: production
       - key: APP_KEY
-        sync: false # MUST be the exact same value as the web service's APP_KEY
+        sync: false
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_HOST
@@ -136,18 +101,6 @@ services:
         value: require
       - key: QUEUE_CONNECTION
         value: database
-      - key: SUPABASE_S3_ACCESS_KEY_ID
-        sync: false # same value as the web service
-      - key: SUPABASE_S3_SECRET_ACCESS_KEY
-        sync: false # same value as the web service
-      - key: SUPABASE_S3_REGION
-        value: eu-west-1
-      - key: SUPABASE_S3_ENDPOINT
-        value: https://ezwfgpxvfyfhvcguydey.storage.supabase.co/storage/v1/s3
-      - key: SUPABASE_S3_PUBLIC_BUCKET
-        value: skulag-images-sign
-      - key: SUPABASE_S3_PRIVATE_BUCKET
-        value: skulag-photos
       - key: MAIL_MAILER
         sync: false
       - key: MAIL_HOST
@@ -160,5 +113,19 @@ services:
         sync: false
       - key: MAIL_FROM_ADDRESS
         sync: false
+      - key: RESEND_API_KEY
+        sync: false
       - key: FRONTEND_URL
         sync: false
+      - key: SUPABASE_S3_ACCESS_KEY_ID
+        sync: false
+      - key: SUPABASE_S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: SUPABASE_S3_REGION
+        value: eu-west-1
+      - key: SUPABASE_S3_ENDPOINT
+        value: https://ezwfgpxvfyfhvcguydey.storage.supabase.co/storage/v1/s3
+      - key: SUPABASE_S3_PUBLIC_BUCKET
+        value: skulag-images-sign
+      - key: SUPABASE_S3_PRIVATE_BUCKET
+        value: skulag-photos
