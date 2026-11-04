@@ -14,7 +14,7 @@ class SubjectController extends Controller
     {
         $query = Subject::orderBy('name');
 
-        if (Auth::user()->hasRole('teacher')) {
+        if (Auth::user()->isAssignmentRestrictedTeacher()) {
             $user = Auth::user();
             $assignments = TeacherAssignment::where('school_id', $user->school_id)
                 ->where('user_id', $user->id)
@@ -48,7 +48,7 @@ class SubjectController extends Controller
 
     public function show(Subject $subject)
     {
-        if (Auth::user()->hasRole('teacher')) {
+        if (Auth::user()->isAssignmentRestrictedTeacher()) {
             $user = Auth::user();
             $allowed = TeacherAssignment::where('school_id', $user->school_id)
                 ->where('user_id', $user->id)

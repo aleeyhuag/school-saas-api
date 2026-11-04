@@ -20,7 +20,7 @@ class SchoolClassController extends Controller
     {
         $query = SchoolClass::with('subjects')->orderBy('level');
 
-        if (Auth::user()->hasRole('teacher')) {
+        if (Auth::user()->isAssignmentRestrictedTeacher()) {
             $classIds = TeacherAssignment::where('school_id', Auth::user()->school_id)
                 ->where('user_id', Auth::user()->id)
                 ->pluck('school_class_id')
@@ -41,7 +41,7 @@ class SchoolClassController extends Controller
 
     public function show(SchoolClass $schoolClass)
     {
-        if (Auth::user()->hasRole('teacher')) {
+        if (Auth::user()->isAssignmentRestrictedTeacher()) {
             abort_unless(
                 TeacherAssignment::where('school_id', Auth::user()->school_id)
                     ->where('user_id', Auth::user()->id)

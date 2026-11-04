@@ -12,7 +12,7 @@ class EnsureTeacherStudentScope
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
-        if (!$user || !$user->hasRole('teacher')) {
+        if (!$user || !$user->isAssignmentRestrictedTeacher()) {
             return $next($request);
         }
 

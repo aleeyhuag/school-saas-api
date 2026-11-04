@@ -82,6 +82,18 @@ class User extends Authenticatable
     }
 
     /**
+     * True only for staff whose access should be limited to their own
+     * assignments: a teacher who holds no management role. A Principal,
+     * Proprietor, Bursar or Exam Officer who is ALSO a teacher keeps their
+     * full management visibility (all classes, all subjects).
+     */
+    public function isAssignmentRestrictedTeacher(): bool
+    {
+        return $this->hasRole('teacher')
+            && ! $this->hasAnyRole(['proprietor', 'principal', 'bursar', 'exam_officer']);
+    }
+
+    /**
      * Overrides Laravel's default reset-password email, which links
      * to a named backend route that doesn't exist in this API-only
      * app — see App\Notifications\PasswordResetNotification.
