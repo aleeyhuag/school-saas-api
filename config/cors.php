@@ -20,8 +20,10 @@ return [
     // subdomain without needing a code change each time a new one is
     // added.
     'allowed_origins' => array_values(array_filter([
-        env('FRONTEND_URL'),
-        env('APP_ENV') === 'local' ? 'http://localhost:5173' : null,
+       env('FRONTEND_URL'),
+       env('APP_ENV') === 'local' ? 'http://localhost:5173' : null,
+       'https://localhost',      // Capacitor Android/iOS WebView origin (androidScheme: 'https')
+       'capacitor://localhost',  // fallback, in case scheme config changes later
     ])),
 
     'allowed_origins_patterns' => array_values(array_filter([
