@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Api\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Models\School;
+use App\Models\Student;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use App\Services\AuditLogService;
@@ -10,8 +11,14 @@ use App\Services\SubscriptionService;
 use Illuminate\Validation\ValidationException;
 class LoginController extends Controller {
     public function __invoke(LoginRequest $request, AuditLogService $auditLogs, SubscriptionService $subscriptionService) {
-        $v=$request->validated(); $email=strtolower(trim($v['email']));
-        $candidates=User::where('email',$email)->with('school')->get();
+        $v=$request->validated(); $identifier=trim($v['email']);
+        if(str_contains($identifier,'@')){
+            $candidates=User::where('email',strtolower($identifier))->with('school')->get();
+        } else {
+            // Students sign in with their admission number (no email to remember).
+            $userIds=Student::withoutGlobalScopes()->whereRaw('LOWER(admission_number) = ?',[strtolower($identifier)])->whereNotNull('user_id')->pluck('user_id');
+            $candidates=User::whereIn('id',$userIds)->with('school')->get();
+        }
         $matches=$candidates->filter(fn($u)=>Hash::check($v['password'],$u->password));
         if($v['school_id'] ?? null) $matches=$matches->where('school_id',(int)$v['school_id']);
         if($matches->count() > 1) {

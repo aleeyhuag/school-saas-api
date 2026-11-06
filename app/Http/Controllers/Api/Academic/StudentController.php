@@ -170,7 +170,7 @@ class StudentController extends Controller
 
         $school = $student->school;
         $temporaryPassword = Str::random(10);
-        $loginEmail = strtolower($student->admission_number) . '@' . $school->slug . '.students.local';
+        $loginEmail = strtolower($student->admission_number) . '@students.local';
 
         $loginUser = User::create([
             'school_id' => $school->id,

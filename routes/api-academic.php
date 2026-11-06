@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Academic\DashboardStatsController;
 use App\Http\Controllers\Api\Academic\InviteUserController;
 use App\Http\Controllers\Api\Academic\SchoolClassController;
 use App\Http\Controllers\Api\Academic\StaffController;
+use App\Http\Controllers\Api\Academic\StudentLoginCredentialsController;
 use App\Http\Controllers\Api\Academic\StudentController;
 use App\Http\Controllers\Api\Academic\StudentPromotionController;
 use App\Http\Controllers\Api\Academic\SubjectController;
@@ -22,6 +23,7 @@ Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal']
     Route::post('students/{student}/create-login', [StudentController::class, 'createLogin']);
     Route::post('students/{student}/photo', [StudentController::class, 'uploadPhoto']);
     Route::post('students/bulk-import', BulkImportStudentsController::class);
+    Route::post('students/login-credentials', StudentLoginCredentialsController::class)->middleware('throttle:60,1');
 
     Route::post('invite-user', InviteUserController::class);
     // DashboardStatsController is an invokable controller; calling a

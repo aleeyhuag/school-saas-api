@@ -24,7 +24,7 @@ class StudentEnrollmentService
             $providedEmail = filled($data['login_email'] ?? null);
             $loginEmail = $providedEmail
                 ? strtolower(trim($data['login_email']))
-                : strtolower($admissionNumber) . '@' . $school->slug . '.students.local';
+                : strtolower($admissionNumber) . '@students.local';
 
             $temporaryPassword = Str::random(12);
 
