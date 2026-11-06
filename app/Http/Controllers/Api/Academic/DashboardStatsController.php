@@ -22,7 +22,15 @@ class DashboardStatsController extends Controller
         $schoolId = Auth::user()->school_id;
 
         $studentsCount = Student::count(); // BelongsToSchool already scopes this
-        $staffCount = User::where('school_id', $schoolId)->count();
+
+        // Staff = everyone in this school who is NOT a student or a parent.
+        // This is the same definition the Staff page uses (StaffController@index),
+        // so the dashboard card and the Staff list always agree. Counting every
+        // user in the school would also count each student's login account and
+        // every parent account.
+        $staffCount = User::where('school_id', $schoolId)
+            ->whereDoesntHave('roles', fn ($q) => $q->whereIn('name', ['student', 'parent']))
+            ->count();
 
         $currentTermId = Term::where('school_id', $schoolId)->where('is_current', true)->value('id');
         $feeSummary = $currentTermId ? $feeService->schoolFeeSummary($schoolId, $currentTermId) : null;

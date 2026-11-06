@@ -29,6 +29,11 @@ class BulkImportStudentsController extends Controller
 
         $autoGenerate = (bool) $school->auto_generate_admission_numbers;
         $classes = SchoolClass::where('school_id', $school->id)->get();
+        // One query up front instead of one "does this number exist?" query per row.
+        $existingAdmissionNumbers = Student::where('school_id', $school->id)
+            ->whereNotNull('admission_number')
+            ->pluck('admission_number')
+            ->flip();
         $created = [];
         $skipped = [];
         $rowNumber = 1;
@@ -58,8 +63,19 @@ class BulkImportStudentsController extends Controller
                 $skipped[] = ['row' => $rowNumber, 'reason' => "No class matching \"{$className} {$classArm}\" was found."];
                 continue;
             }
-            if ($admissionNumber && Student::where('school_id', $school->id)->where('admission_number', $admissionNumber)->exists()) {
+            if ($admissionNumber && isset($existingAdmissionNumbers[$admissionNumber])) {
                 $skipped[] = ['row' => $rowNumber, 'reason' => "Admission number {$admissionNumber} already exists."];
+                continue;
+            }
+
+            // Dates in the file are read as DAY/MONTH/YEAR (e.g. 27/02/2016), the
+            // format used in Nigeria. Passing the raw text to the database made it
+            // read 05/03/2014 as 3 May instead of 5 March, and reject any date
+            // whose day is above 12.
+            try {
+                $dateOfBirth = $this->normalizeDate($data['date_of_birth'] ?? null);
+            } catch (\InvalidArgumentException $e) {
+                $skipped[] = ['row' => $rowNumber, 'reason' => $e->getMessage()];
                 continue;
             }
 
@@ -69,12 +85,15 @@ class BulkImportStudentsController extends Controller
                     'admission_number' => $autoGenerate ? null : $admissionNumber,
                     'first_name' => $firstName,
                     'last_name' => $lastName,
-                    'date_of_birth' => !empty($data['date_of_birth']) ? $data['date_of_birth'] : null,
+                    'date_of_birth' => $dateOfBirth,
                     'gender' => !empty($data['gender']) ? $data['gender'] : null,
                     'guardian_name' => !empty($data['guardian_name']) ? $data['guardian_name'] : null,
                     'guardian_phone' => !empty($data['guardian_phone']) ? $data['guardian_phone'] : null,
                     'login_email' => !empty($data['login_email']) ? $data['login_email'] : null,
                 ], $school);
+                if ($student->admission_number) {
+                    $existingAdmissionNumbers[$student->admission_number] = true;
+                }
                 if ($providedEmail) {
                     $token = app(AccountActionTokenService::class)->issue($student->user, 'account_setup');
                     $student->user->notify(new AccountSetupNotification($token, $school->name));
@@ -98,5 +117,32 @@ class BulkImportStudentsController extends Controller
             'skipped' => $skipped,
             'auto_generated_admission_numbers' => $autoGenerate,
         ]);
+    }
+
+    /**
+     * Accepts DD/MM/YYYY (also DD-MM-YYYY and DD.MM.YYYY) and YYYY-MM-DD.
+     * Returns Y-m-d, or null for an empty cell. Throws for anything else so the
+     * row is skipped with a clear reason instead of being saved with a wrong date.
+     */
+    private function normalizeDate(?string $value): ?string
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+
+        if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/', $value, $m)) {
+            [$year, $month, $day] = [(int) $m[1], (int) $m[2], (int) $m[3]];
+        } elseif (preg_match('/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/', $value, $m)) {
+            [$day, $month, $year] = [(int) $m[1], (int) $m[2], (int) $m[3]];
+        } else {
+            throw new \InvalidArgumentException("Date of birth \"{$value}\" is not in a recognised format. Use DD/MM/YYYY, e.g. 27/02/2016.");
+        }
+
+        if (! checkdate($month, $day, $year)) {
+            throw new \InvalidArgumentException("Date of birth \"{$value}\" is not a real calendar date. Use DD/MM/YYYY, e.g. 27/02/2016.");
+        }
+
+        return sprintf('%04d-%02d-%02d', $year, $month, $day);
     }
 }
