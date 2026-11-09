@@ -14,10 +14,11 @@ RUN apt-get update && apt-get install -y \
         unzip \
         git \
     && docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype \
-    && docker-php-ext-install pdo_pgsql zip gd mbstring xml bcmath \
+    && docker-php-ext-install pdo_pgsql zip gd mbstring xml bcmath opcache \
     && php -r 'if (!extension_loaded("gd") || !function_exists("imagecreatefrompng") || !function_exists("imagejpeg")) { fwrite(STDERR, "GD with PNG/JPEG support is required\n"); exit(1); }' \
     && a2enmod rewrite \
     && a2enmod headers \
+    && a2enmod deflate \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
@@ -33,6 +34,12 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' \
         /etc/apache2/apache2.conf \
     && sed -ri -e 's/AllowOverride None/AllowOverride All/g' \
         /etc/apache2/apache2.conf
+
+# Speed: keep compiled PHP in memory (OPcache), compress JSON, and size Apache for
+# a 512 MB instance. See docker/opcache.ini and docker/skulag-apache.conf.
+COPY docker/opcache.ini /usr/local/etc/php/conf.d/zz-opcache.ini
+COPY docker/skulag-apache.conf /etc/apache2/conf-available/skulag.conf
+RUN a2enconf skulag
 
 COPY composer.json composer.lock ./
 

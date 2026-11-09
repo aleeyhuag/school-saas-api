@@ -26,6 +26,7 @@ class StudentController extends Controller
      * Lists students. Supports:
      *  - ?school_class_id= — narrow to one class (already small, no
      *    pagination needed — used by attendance/score-entry rosters)
+     *  - ?lite=1 — plain student fields only (faster; used by class rosters)
      *  - ?search= — matches first name, last name, or admission number
      *  - ?page= — when present, returns a paginated response instead
      *    of a plain array (opt-in, so existing callers that expect a
@@ -36,7 +37,11 @@ class StudentController extends Controller
      */
     public function index()
     {
-        $query = Student::with(['schoolClass', 'guardians:id,name,email', 'user:id,name,email']);
+        // ?lite=1 — class rosters (attendance, score entry) only need the student's
+        // own fields, so skip loading class, guardians and login for every student.
+        $query = request()->boolean('lite')
+            ? Student::query()
+            : Student::with(['schoolClass', 'guardians:id,name,email', 'user:id,name,email']);
 
         if (request()->filled('school_class_id')) {
             $query->where('school_class_id', request()->input('school_class_id'));

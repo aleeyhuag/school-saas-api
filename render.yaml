@@ -38,6 +38,14 @@ services:
         value: require
       - key: SESSION_DRIVER
         value: database
+      # File cache = no database round trips for rate limiting and permission
+      # lookups on every request. (The scheduler service keeps the default.)
+      - key: CACHE_STORE
+        value: file
+      # Optional: reuse database connections between requests. Leave "false"
+      # unless DB_HOST is a direct or session-mode Supabase host.
+      - key: DB_PERSISTENT
+        value: "false"
       - key: QUEUE_CONNECTION
         value: database
       - key: EXPORT_SYNC_MODE

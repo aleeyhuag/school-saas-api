@@ -97,6 +97,11 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // Reuse the connection between requests instead of opening a new one
+            // each time (opening one costs several network round trips).
+            'options' => filter_var(env('DB_PERSISTENT', false), FILTER_VALIDATE_BOOL)
+                ? [\PDO::ATTR_PERSISTENT => true]
+                : [],
         ],
 
         'sqlsrv' => [
