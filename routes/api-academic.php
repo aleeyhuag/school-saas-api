@@ -45,13 +45,6 @@ Route::middleware(['auth:sanctum', 'school.active', 'role:principal'])->group(fu
     Route::get('promotions/history', [StudentPromotionController::class, 'history']);
 });
 
-// Teacher read access is intentionally constrained by assignment.
-// The middleware requires a class filter that belongs to one of the
-// teacher's assignments, preventing school-wide student enumeration.
-Route::middleware(['auth:sanctum', 'school.active', 'role:teacher', EnsureTeacherStudentScope::class])->group(function () {
-    Route::get('students', [StudentController::class, 'index']);
-});
-
 Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal|teacher|bursar|exam_officer'])->group(function () {
     Route::get('classes', [SchoolClassController::class, 'index']);
     Route::get('classes/{schoolClass}', [SchoolClassController::class, 'show']);
@@ -59,7 +52,13 @@ Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal|t
     Route::get('subjects/{subject}', [SubjectController::class, 'show']);
 });
 
-Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal|bursar|exam_officer'])->group(function () {
+// ONE route for everyone allowed to list students. (It used to be declared twice —
+// once for teachers, once for management. Laravel keeps only the LAST declaration of
+// the same URL, so teachers were silently sent to the management-only version and got
+// "User does not have the right roles.")
+// EnsureTeacherStudentScope limits teachers who hold no management role to the
+// classes they are assigned to and requires a class filter; everyone else passes through.
+Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal|bursar|exam_officer|teacher', EnsureTeacherStudentScope::class])->group(function () {
     Route::get('students', [StudentController::class, 'index']);
 });
 
