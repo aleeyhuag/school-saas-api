@@ -7,8 +7,12 @@ use App\Http\Controllers\Api\Grading\SubjectScoreController;
 use App\Http\Middleware\EnsureCurrentAcademicContext;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal|exam_officer'])->group(function () {
+// Teachers need to READ the assessment setup (weights) to enter scores.
+Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal|exam_officer|teacher'])->group(function () {
     Route::get('assessment-settings', [AssessmentSettingController::class, 'show']);
+});
+
+Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal|exam_officer'])->group(function () {
     Route::get('grade-boundaries', [GradeBoundaryController::class, 'index']);
 });
 
@@ -21,6 +25,7 @@ Route::middleware(['auth:sanctum', 'school.active', 'role:exam_officer'])->group
 
 Route::middleware(['auth:sanctum', 'school.active', 'role:proprietor|principal|exam_officer|teacher', EnsureCurrentAcademicContext::class])->group(function () {
     Route::post('subject-scores', [SubjectScoreController::class, 'store']);
+    Route::post('subject-scores/bulk', [SubjectScoreController::class, 'bulkStore']);
     Route::get('subject-scores', [SubjectScoreController::class, 'index']);
     Route::get('classes/{schoolClassId}/marksheet', [SubjectScoreController::class, 'classMarksheet']);
     Route::get('classes/{schoolClassId}/term-result', [ResultController::class, 'classTermResult']);

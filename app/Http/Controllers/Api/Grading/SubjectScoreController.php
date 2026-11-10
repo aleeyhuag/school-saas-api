@@ -86,6 +86,13 @@ class SubjectScoreController extends Controller
             }
         }
 
+        // Scores are entered out of each component's weight — check them and fill
+        // in the "out of" values from the school's assessment setup.
+        [$validated, $scoreErrors] = $this->resultService->normalizeScoreInput((int) $user->school_id, $validated);
+        if ($scoreErrors) {
+            throw ValidationException::withMessages($scoreErrors);
+        }
+
         $score = SubjectScore::updateOrCreate(
             [
                 'student_id' => $validated['student_id'],
@@ -99,6 +106,127 @@ class SubjectScoreController extends Controller
         );
 
         return response()->json($this->resultService->computeSubjectResult($score), 201);
+    }
+
+    /**
+     * Save a whole class's scores for one subject in one go (the "Save all"
+     * button). Same rules as store(), but the access checks run once and the
+     * rows are written in a single query instead of one request per student.
+     * All-or-nothing: if any row is invalid, nothing is saved and the errors
+     * say which rows (scores.3.ca_score = 4th row) so the page can point at them.
+     */
+    public function bulkStore(\Illuminate\Http\Request $request)
+    {
+        $user = Auth::user();
+        $schoolId = (int) $user->school_id;
+
+        $data = $request->validate([
+            'term_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('terms', 'id')->where(fn ($q) => $q->where('school_id', $schoolId))],
+            'school_class_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('school_classes', 'id')->where(fn ($q) => $q->where('school_id', $schoolId))],
+            'subject_id' => ['required', 'integer', \Illuminate\Validation\Rule::exists('subjects', 'id')->where(fn ($q) => $q->where('school_id', $schoolId))],
+            'scores' => ['required', 'array', 'min:1', 'max:300'],
+            'scores.*.student_id' => ['required', 'integer', 'distinct'],
+            'scores.*.ca_score' => ['nullable', 'numeric', 'min:0'],
+            'scores.*.ca2_score' => ['nullable', 'numeric', 'min:0'],
+            'scores.*.ca3_score' => ['nullable', 'numeric', 'min:0'],
+            'scores.*.assignment_score' => ['nullable', 'numeric', 'min:0'],
+            'scores.*.exam_score' => ['nullable', 'numeric', 'min:0'],
+            'scores.*.teacher_comment' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $schoolClass = SchoolClass::whereKey($data['school_class_id'])->firstOrFail();
+        $term = Term::whereKey($data['term_id'])->firstOrFail();
+
+        if ((int) $schoolClass->school_id !== $schoolId || (int) $term->school_id !== $schoolId) {
+            abort(403, 'The supplied academic records do not belong to your school.');
+        }
+
+        if (! $schoolClass->subjects()->whereKey($data['subject_id'])->exists()) {
+            throw ValidationException::withMessages(['subject_id' => ['This subject is not attached to the selected class.']]);
+        }
+
+        $isLocked = TermResultApproval::where('school_class_id', $schoolClass->id)
+            ->where('term_id', $term->id)
+            ->whereNotNull('locked_at')
+            ->exists();
+
+        if ($isLocked) {
+            throw ValidationException::withMessages([
+                'scores' => ['Results for this class/term have been permanently published — scores can no longer be edited.'],
+            ]);
+        }
+
+        if (! $user->hasRole(['proprietor', 'principal', 'exam_officer'])) {
+            $isAssigned = TeacherAssignment::where('user_id', $user->id)
+                ->where('school_class_id', $schoolClass->id)
+                ->where('subject_id', $data['subject_id'])
+                ->exists();
+
+            if (! $isAssigned) {
+                throw ValidationException::withMessages(['subject_id' => ['You are not assigned to teach this subject in this class.']]);
+            }
+        }
+
+        // Every student must really be in this class (one query for all of them).
+        $classStudentIds = Student::where('school_class_id', $schoolClass->id)
+            ->whereIn('id', collect($data['scores'])->pluck('student_id'))
+            ->pluck('id')
+            ->all();
+
+        $errors = [];
+        $rows = [];
+        $now = now();
+
+        foreach ($data['scores'] as $index => $entry) {
+            if (! in_array((int) $entry['student_id'], $classStudentIds, true)) {
+                $errors["scores.{$index}.student_id"] = 'This student does not belong to this class.';
+                continue;
+            }
+
+            [$normalized, $scoreErrors] = $this->resultService->normalizeScoreInput($schoolId, $entry);
+            foreach ($scoreErrors as $field => $message) {
+                $errors["scores.{$index}.{$field}"] = $message;
+            }
+
+            $rows[] = [
+                'school_id' => $schoolId,
+                'term_id' => $term->id,
+                'school_class_id' => $schoolClass->id,
+                'subject_id' => (int) $data['subject_id'],
+                'student_id' => (int) $entry['student_id'],
+                'ca_score' => $normalized['ca_score'] ?? null,
+                'ca_max' => $normalized['ca_max'],
+                'ca2_score' => $normalized['ca2_score'] ?? null,
+                'ca2_max' => $normalized['ca2_max'] ?? null,
+                'ca3_score' => $normalized['ca3_score'] ?? null,
+                'ca3_max' => $normalized['ca3_max'] ?? null,
+                'assignment_score' => $normalized['assignment_score'] ?? null,
+                'assignment_max' => $normalized['assignment_max'],
+                'exam_score' => $normalized['exam_score'] ?? null,
+                'exam_max' => $normalized['exam_max'],
+                'teacher_comment' => $normalized['teacher_comment'] ?? null,
+                'entered_by' => $user->id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        if ($errors) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        // One INSERT ... ON CONFLICT UPDATE for the whole class.
+        SubjectScore::upsert(
+            $rows,
+            ['student_id', 'subject_id', 'term_id'],
+            [
+                'school_class_id', 'ca_score', 'ca_max', 'ca2_score', 'ca2_max', 'ca3_score', 'ca3_max',
+                'assignment_score', 'assignment_max', 'exam_score', 'exam_max',
+                'teacher_comment', 'entered_by', 'updated_at',
+            ]
+        );
+
+        return response()->json(['saved' => count($rows)]);
     }
 
     /**
@@ -236,6 +364,7 @@ class SubjectScoreController extends Controller
             'school_class_id' => $schoolClass->id,
             'term_id' => $termId,
             'students' => $rows->values(),
+            'components' => $this->resultService->componentsFor((int) $user->school_id),
             'subjects' => $schoolClass->subjects->map(fn ($subject) => [
                 'id' => $subject->id,
                 'name' => $subject->name,

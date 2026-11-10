@@ -12,12 +12,15 @@ class SubjectScore extends Model
 
     protected $fillable = [
         'school_id', 'term_id', 'school_class_id', 'subject_id', 'student_id',
-        'ca_score', 'ca_max', 'assignment_score', 'assignment_max',
+        'ca_score', 'ca_max', 'ca2_score', 'ca2_max', 'ca3_score', 'ca3_max',
+        'assignment_score', 'assignment_max',
         'exam_score', 'exam_max', 'teacher_comment', 'entered_by',
     ];
 
     protected $casts = [
         'ca_score' => 'float', 'ca_max' => 'float',
+        'ca2_score' => 'float', 'ca2_max' => 'float',
+        'ca3_score' => 'float', 'ca3_max' => 'float',
         'assignment_score' => 'float', 'assignment_max' => 'float',
         'exam_score' => 'float', 'exam_max' => 'float',
     ];

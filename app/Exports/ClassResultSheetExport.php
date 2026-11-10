@@ -31,6 +31,12 @@ class ClassResultSheetExport implements FromArray, WithHeadings, WithTitle
         $this->subjects = $this->schoolClass->subjects()->orderBy('name')->get()->all();
     }
 
+    /** The score columns this school uses (CA 1..3, Assignment, Exam). */
+    protected function components(): array
+    {
+        return $this->resultService->componentsFor((int) $this->schoolClass->school_id);
+    }
+
     public function title(): string
     {
         // Excel sheet titles are capped at 31 chars and can't contain
@@ -43,9 +49,9 @@ class ClassResultSheetExport implements FromArray, WithHeadings, WithTitle
         $headings = ['Student Name', 'Admission No.'];
 
         foreach ($this->subjects as $subject) {
-            $headings[] = "{$subject->name} - CA";
-            $headings[] = "{$subject->name} - Assignment";
-            $headings[] = "{$subject->name} - Exam";
+            foreach ($this->components() as $component) {
+                $headings[] = "{$subject->name} - {$component['label']} (/{$component['weight']})";
+            }
             $headings[] = "{$subject->name} - Total";
             $headings[] = "{$subject->name} - Grade";
         }
@@ -82,14 +88,17 @@ class ClassResultSheetExport implements FromArray, WithHeadings, WithTitle
                 $score = $studentScores->get($subject->id);
 
                 if (! $score) {
-                    array_push($row, '—', '—', '—', '—', '—');
+                    // One dash per score column, plus Total and Grade.
+                    array_push($row, ...array_fill(0, count($this->components()) + 2, '—'));
                     continue;
                 }
 
                 $computed = $this->resultService->computeSubjectResult($score);
-                $row[] = $computed['ca']['score'] ?? '—';
-                $row[] = $computed['assignment']['score'] ?? '—';
-                $row[] = $computed['exam']['score'] ?? '—';
+                foreach ($this->components() as $component) {
+                    $row[] = ($computed[$component['key']]['score'] ?? null) === null
+                        ? '—'
+                        : $computed[$component['key']]['weighted'];
+                }
                 $row[] = $computed['total_score'];
                 $row[] = $computed['grade'] ?? '—';
             }

@@ -136,7 +136,7 @@ class SchoolHealthService
         if (! $assessmentSetting) {
             $issues[] = $this->issue('grading_not_configured', 'Grading weights (CA/Assignment/Exam) not configured yet — ask your Exam Officer to set this up', null, null);
         } elseif (
-            $assessmentSetting->ca_weight + $assessmentSetting->assignment_weight + $assessmentSetting->exam_weight !== 100
+            array_sum(app(\App\Services\ResultService::class)->weightsFor($assessmentSetting)) !== 100
         ) {
             $issues[] = $this->issue('grading_weights_invalid', "Grading weights don't add up to 100% — ask your Exam Officer to fix this", null, null);
         }

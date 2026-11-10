@@ -213,6 +213,10 @@ class SyncController extends Controller
             'student_id' => ['required', 'integer'],
             'ca_score' => ['nullable', 'numeric', 'min:0'],
             'ca_max' => ['nullable', 'numeric', 'min:1'],
+            'ca2_score' => ['nullable', 'numeric', 'min:0'],
+            'ca2_max' => ['nullable', 'numeric', 'min:1'],
+            'ca3_score' => ['nullable', 'numeric', 'min:0'],
+            'ca3_max' => ['nullable', 'numeric', 'min:1'],
             'assignment_score' => ['nullable', 'numeric', 'min:0'],
             'assignment_max' => ['nullable', 'numeric', 'min:1'],
             'exam_score' => ['nullable', 'numeric', 'min:0'],
@@ -266,7 +270,14 @@ class SyncController extends Controller
             }
         }
 
-        $scoreFields = ['ca_score', 'ca_max', 'assignment_score', 'assignment_max', 'exam_score', 'exam_max', 'teacher_comment'];
+        // Scores are entered out of each component's weight — check them and fill in
+        // the "out of" values from the school's assessment setup (same rules as a live save).
+        [$validated, $scoreErrors] = app(\App\Services\ResultService::class)->normalizeScoreInput((int) $user->school_id, $validated);
+        if ($scoreErrors) {
+            throw ValidationException::withMessages($scoreErrors);
+        }
+
+        $scoreFields = ['ca_score', 'ca_max', 'ca2_score', 'ca2_max', 'ca3_score', 'ca3_max', 'assignment_score', 'assignment_max', 'exam_score', 'exam_max', 'teacher_comment'];
         $existingRow = SubjectScore::where('student_id', $validated['student_id'])
             ->where('subject_id', $validated['subject_id'])
             ->where('term_id', $validated['term_id'])
@@ -392,7 +403,7 @@ class SyncController extends Controller
                     );
                 }
             } elseif ($operation->type === 'score_save') {
-                $scoreFields = ['ca_score', 'ca_max', 'assignment_score', 'assignment_max', 'exam_score', 'exam_max', 'teacher_comment'];
+                $scoreFields = ['ca_score', 'ca_max', 'ca2_score', 'ca2_max', 'ca3_score', 'ca3_max', 'assignment_score', 'assignment_max', 'exam_score', 'exam_max', 'teacher_comment'];
                 SubjectScore::updateOrCreate(
                     [
                         'student_id' => $payload['student_id'],

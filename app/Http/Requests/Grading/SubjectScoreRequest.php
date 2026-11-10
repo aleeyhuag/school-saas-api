@@ -36,6 +36,10 @@ class SubjectScoreRequest extends FormRequest
 
             'ca_score' => ['nullable', 'numeric', 'min:0'],
             'ca_max' => ['nullable', 'numeric', 'min:1'],
+            'ca2_score' => ['nullable', 'numeric', 'min:0'],
+            'ca2_max' => ['nullable', 'numeric', 'min:1'],
+            'ca3_score' => ['nullable', 'numeric', 'min:0'],
+            'ca3_max' => ['nullable', 'numeric', 'min:1'],
             'assignment_score' => ['nullable', 'numeric', 'min:0'],
             'assignment_max' => ['nullable', 'numeric', 'min:1'],
             'exam_score' => ['nullable', 'numeric', 'min:0'],

@@ -73,13 +73,14 @@
         </tr>
     </table>
 
+    @php $components = app(\App\Services\ResultService::class)->componentsFor((int) $student->school_id); @endphp
     <table class="scores">
         <thead>
             <tr>
                 <th>Subject</th>
-                <th class="num">CA</th>
-                <th class="num">Assignment</th>
-                <th class="num">Exam</th>
+                @foreach($components as $component)
+                    <th class="num">{{ $component['label'] }}<br><span style="font-weight: normal; font-size: 8px;">/{{ $component['weight'] }}</span></th>
+                @endforeach
                 <th class="num">Total</th>
                 <th class="num">Grade</th>
                 <th class="num">Position</th>
@@ -90,16 +91,16 @@
             @forelse($result['subjects'] as $s)
                 <tr>
                     <td>{{ $s['subject_name'] }}</td>
-                    <td class="num">{{ $s['ca']['score'] ?? '—' }}</td>
-                    <td class="num">{{ $s['assignment']['score'] ?? '—' }}</td>
-                    <td class="num">{{ $s['exam']['score'] ?? '—' }}</td>
+                    @foreach($components as $component)
+                        <td class="num">{{ ($s[$component['key']]['score'] ?? null) === null ? '—' : $s[$component['key']]['weighted'] }}</td>
+                    @endforeach
                     <td class="num"><strong>{{ $s['total_score'] }}</strong></td>
                     <td class="num">{{ $s['grade'] ?? '—' }}</td>
                     <td class="num">{{ $s['position_in_subject'] ?? '—' }} / {{ $s['class_size'] ?? '—' }}</td>
                     <td>{{ $s['teacher_comment'] ?? '—' }}</td>
                 </tr>
             @empty
-                <tr><td colspan="8">No scores entered for this term yet.</td></tr>
+                <tr><td colspan="{{ 5 + count($components) }}">No scores entered for this term yet.</td></tr>
             @endforelse
         </tbody>
     </table>

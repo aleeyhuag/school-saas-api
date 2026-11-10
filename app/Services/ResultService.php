@@ -46,31 +46,116 @@ class ResultService
     {
         $settings = $this->settingsFor($score->school_id);
 
-        $caWeighted = $this->weightedComponent($score->ca_score, $score->ca_max, $settings->ca_weight);
-        $assignmentWeighted = $this->weightedComponent($score->assignment_score, $score->assignment_max, $settings->assignment_weight);
-        $examWeighted = $this->weightedComponent($score->exam_score, $score->exam_max, $settings->exam_weight);
+        $result = ['subject_id' => $score->subject_id];
+        $total = 0;
 
-        $total = round($caWeighted + $assignmentWeighted + $examWeighted, 1);
+        foreach ($this->weightsFor($settings) as $key => $weight) {
+            $scoreValue = $score->{$key . '_score'};
+            $max = $score->{$key . '_max'};
+            $weighted = $this->weightedComponent($scoreValue, $max, $weight);
+            $total += $weighted;
 
-        return [
-            'subject_id' => $score->subject_id,
-            'ca' => [
-                'score' => $score->ca_score,
-                'max' => $score->ca_max,
-                'weighted' => round($caWeighted, 1),
-            ],
-            'assignment' => [
-                'score' => $score->assignment_score,
-                'max' => $score->assignment_max,
-                'weighted' => round($assignmentWeighted, 1),
-            ],
-            'exam' => [
-                'score' => $score->exam_score,
-                'max' => $score->exam_max,
-                'weighted' => round($examWeighted, 1),
-            ],
+            $result[$key] = [
+                'score' => $scoreValue,
+                'max' => $max ?? $weight,
+                'weight' => $weight,
+                'weighted' => round($weighted, 1),
+            ];
+        }
+
+        $total = round($total, 1);
+
+        return $result + [
             'total_score' => $total,
             'grade' => $this->gradeFor($score->school_id, $total),
+        ];
+    }
+
+    /**
+     * The score columns this school actually uses, in the order they should be
+     * shown: each CA (1-3), then Assignment (if it has a weight), then Exam.
+     * Used by score entry, the marksheet, report cards and exports so they all
+     * agree. Returns [['key' => 'ca', 'label' => 'CA 1', 'weight' => 10], ...].
+     */
+    public function componentsFor(int $schoolId): array
+    {
+        $settings = $this->settingsFor($schoolId);
+        $weights = $this->weightsFor($settings);
+        $caCount = max(1, min(3, (int) ($settings->ca_count ?? 1)));
+        $labelled = $caCount > 1;
+
+        $components = [];
+        foreach (['ca', 'ca2', 'ca3'] as $i => $key) {
+            if ($i < $caCount && $weights[$key] > 0) {
+                $components[] = ['key' => $key, 'label' => $labelled ? 'CA ' . ($i + 1) : 'CA', 'weight' => $weights[$key]];
+            }
+        }
+        if ($weights['assignment'] > 0) {
+            $components[] = ['key' => 'assignment', 'label' => 'Assignment', 'weight' => $weights['assignment']];
+        }
+        $components[] = ['key' => 'exam', 'label' => 'Exam', 'weight' => $weights['exam']];
+
+        return $components;
+    }
+
+    /**
+     * Checks entered scores against this school's weights and fills in each
+     * component's "out of" value. Scores are entered directly out of the
+     * component's weight (e.g. a CA weighted 10 is marked out of 10), so the
+     * "out of" no longer comes from the teacher. A client that still sends an
+     * explicit *_max (an older queued offline save) is honoured.
+     *
+     * Returns [normalizedInput, errors] where errors is [field => message].
+     */
+    public function normalizeScoreInput(int $schoolId, array $input): array
+    {
+        $weights = $this->weightsFor($this->settingsFor($schoolId));
+        $labels = collect($this->componentsFor($schoolId))->pluck('label', 'key');
+        $legacyMax = ['ca' => 20, 'assignment' => 10, 'exam' => 100];
+
+        $out = $input;
+        $errors = [];
+
+        foreach ($weights as $key => $weight) {
+            $scoreField = $key . '_score';
+            $maxField = $key . '_max';
+
+            if ($weight <= 0) {
+                // This school does not use this component.
+                $out[$scoreField] = null;
+                if (isset($legacyMax[$key])) {
+                    $out[$maxField] = $input[$maxField] ?? $legacyMax[$key];
+                } else {
+                    $out[$maxField] = null;
+                }
+                continue;
+            }
+
+            $max = isset($input[$maxField]) && $input[$maxField] !== '' ? (float) $input[$maxField] : (float) $weight;
+            $out[$maxField] = $max;
+
+            $value = $input[$scoreField] ?? null;
+            if ($value !== null && $value !== '' && (float) $value > $max) {
+                $label = $labels[$key] ?? strtoupper($key);
+                $shown = rtrim(rtrim(number_format($max, 2, '.', ''), '0'), '.');
+                $errors[$scoreField] = "{$label} cannot be more than {$shown}.";
+            }
+        }
+
+        return [$out, $errors];
+    }
+
+    /** [component key => weight] for a settings row. Keys match the score columns. */
+    public function weightsFor(AssessmentSetting $settings): array
+    {
+        $caCount = max(1, min(3, (int) ($settings->ca_count ?? 1)));
+
+        return [
+            'ca' => (int) $settings->ca_weight,
+            'ca2' => $caCount >= 2 ? (int) ($settings->ca2_weight ?? 0) : 0,
+            'ca3' => $caCount >= 3 ? (int) ($settings->ca3_weight ?? 0) : 0,
+            'assignment' => (int) $settings->assignment_weight,
+            'exam' => (int) $settings->exam_weight,
         ];
     }
 
@@ -225,9 +310,13 @@ class ResultService
 
     protected function weightedComponent(?float $score, ?float $max, int $weight): float
     {
-        if ($score === null || $max === null || $max <= 0) {
+        if ($score === null || $weight <= 0) {
             return 0;
         }
+
+        // Scores are entered out of the component's weight, so a missing "out of"
+        // simply means the weight itself.
+        $max = ($max === null || $max <= 0) ? $weight : $max;
 
         return ($score / $max) * $weight;
     }
@@ -248,7 +337,10 @@ class ResultService
         if (! $settings) {
             $settings = new AssessmentSetting([
                 'school_id' => $schoolId,
+                'ca_count' => 1,
                 'ca_weight' => 30,
+                'ca2_weight' => 0,
+                'ca3_weight' => 0,
                 'assignment_weight' => 10,
                 'exam_weight' => 60,
             ]);

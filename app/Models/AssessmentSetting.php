@@ -9,5 +9,7 @@ class AssessmentSetting extends Model
 {
     use BelongsToSchool;
 
-    protected $fillable = ['school_id', 'ca_weight', 'assignment_weight', 'exam_weight'];
+    protected $fillable = [
+        'school_id', 'ca_count', 'ca_weight', 'ca2_weight', 'ca3_weight', 'assignment_weight', 'exam_weight',
+    ];
 }
